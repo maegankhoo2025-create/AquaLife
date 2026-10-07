@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 
 const tankRoutes = require('./routes/tanks');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -22,6 +23,7 @@ app.get('/api/health', (req, res) => {
 
 // Feature routes
 app.use('/api/tanks', tankRoutes);
+app.use('/auth', authRoutes);
 
 // Fallback for unknown routes
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
