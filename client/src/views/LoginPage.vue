@@ -67,7 +67,7 @@ async function handleSubmit() {
 
     // Signup should return to the login form; successful login should open the app.
     if (mode.value === 'login' && response.data.user) {
-    await router.push({ name: 'main-tank' })
+    await router.push({ name: 'profile' })
     }
 
     if (mode.value === 'signup' && response.data.user) {
