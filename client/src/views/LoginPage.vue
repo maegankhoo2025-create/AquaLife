@@ -1,5 +1,13 @@
 <script setup>
 import { computed, ref } from 'vue'
+import LoginApi from '../LoginApi'
+import { useRouter } from 'vue-router'
+// This lets this page tell Vue Router to open a different page.
+const router = useRouter()
+
+const message = ref('')
+const messageIsError = ref(false)
+const isSubmitting = ref(false)
 
 const mode = ref('signup')
 const name = ref('')
@@ -32,6 +40,48 @@ const isPasswordValid = computed(() => {
 
   return hasLetter && hasNumber
 })
+
+
+async function handleSubmit() {
+  message.value = ''
+  isSubmitting.value = true
+
+  try {
+    let response
+
+    if (mode.value === 'signup') {
+      response = await LoginApi.post('/auth/signup', {
+        name: name.value,
+        email: email.value,
+        password: password.value,
+      })
+    } else {
+      response = await LoginApi.post('/auth/login', {
+        email: email.value,
+        password: password.value,
+      })
+    }
+
+    message.value = response.data.message
+    messageIsError.value = !response.data.user
+
+    // Signup should return to the login form; successful login should open the app.
+    if (mode.value === 'login' && response.data.user) {
+    await router.push({ name: 'main-tank' })
+    }
+
+    if (mode.value === 'signup' && response.data.user) {
+      mode.value = 'login'
+      password.value = ''
+    }
+  } catch (error) {
+    console.error('Unable to contact the server:', error)
+    message.value = 'Unable to contact the server. Please try again.'
+    messageIsError.value = true
+  } finally {
+    isSubmitting.value = false
+  }
+}
 </script>
 
 <template>
@@ -46,7 +96,7 @@ const isPasswordValid = computed(() => {
               {{ mode === 'signup' ? 'Sign up' : 'Log in' }}
             </h2>
 
-            <form @submit.prevent>
+            <form @submit.prevent="handleSubmit">
               <div v-if="mode === 'signup'" class="mb-3">
                 <label for="name" class="form-label">Name</label>
                 <input
@@ -96,11 +146,18 @@ const isPasswordValid = computed(() => {
               <button
                 class="btn btn-primary w-100"
                 type="submit"
-                :disabled="mode === 'signup' && !isPasswordValid"
+                :disabled="isSubmitting || (mode === 'signup' && !isPasswordValid)"
               >
                 {{ mode === 'signup' ? 'Create account' : 'Log in' }}
               </button>
             </form>
+            <p v-if="message"
+            class="alert mt-3 mb-0"
+            :class="messageIsError ? 'alert-danger' : 'alert-success'"
+            role="alert"
+            >
+            {{ message }}
+            </p>
 
             <button
               class="btn btn-link w-100 mt-3"
