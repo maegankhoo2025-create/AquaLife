@@ -1,7 +1,57 @@
 const express = require('express')
+const speciesConditions = require('../data/speciesConditions')
 const router = express.Router()
 
+async function getConditions(scientificName) {
+  const slug = scientificName.trim().toLowerCase().replace(/\s+/g, '-')
+  const url =
+    `https://www.aquaristatlas.com/api/v1/species/${encodeURIComponent(slug)}.json`
+
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) return null
+
+    const data = await response.json()
+
+    // Confirm the response belongs to the requested species.
+    if (
+      data.scientificName?.toLowerCase() !== scientificName.toLowerCase()
+    ) {
+      return null
+    }
+
+    const water = data.facts?.water
+
+    if (
+      !water ||
+      ![
+        water.tempMinC,
+        water.tempMaxC,
+        water.phMin,
+        water.phMax,
+      ].every(Number.isFinite)
+    ) {
+      return null
+    }
+
+    return {
+      temperature: { min: water.tempMinC, max: water.tempMaxC },
+      ph: { min: water.phMin, max: water.phMax },
+      source: 'Aquarist Atlas',
+      sourceUrl: data.url,
+      dataType: 'live-api',
+    }
+  } catch (error) {
+    console.error('Conditions lookup failed:', error.message)
+    return null
+  }
+}
+
  async function getSpecies(name) {
+
     const url = new URL('https://api.gbif.org/v1/species/match')
     url.searchParams.set('name', name.trim())
 
@@ -66,6 +116,11 @@ const router = express.Router()
       console.error('Photo lookup failed:', error.message)
     }
 
+    const conditions =
+     await getConditions(data.canonicalName) ??
+      speciesConditions[data.canonicalName] ??
+       null
+
         return ({
       gbifKey: data.usageKey,
       scientificName: data.scientificName,
@@ -75,6 +130,7 @@ const router = express.Router()
       genus: data.genus ?? null,
       source: 'GBIF',
       photo,
+      conditions,
          })
         } 
 

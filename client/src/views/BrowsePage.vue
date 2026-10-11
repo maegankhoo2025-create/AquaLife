@@ -23,6 +23,43 @@ async function loadSpecies() {
   }
 }
 
+const searchName = ref('')
+const searching = ref(false)
+const searchMessage = ref('')
+
+async function searchSpecies() {
+  const name = searchName.value.trim()
+  if (!name || searching.value) return
+
+  searching.value = true
+  searchMessage.value = ''
+
+  try {
+    const response = await axios.get(
+      'http://localhost:8000/api/species',
+      { params: { name } }
+    )
+
+    const fish = response.data
+    const exists = species.value.some(
+      item => item.gbifKey === fish.gbifKey
+    )
+
+    if (exists) {
+      searchMessage.value = 'This species is already displayed.'
+    } else {
+      species.value.push(fish)
+      searchMessage.value = 'Species added to the results.'
+    }
+  } catch (error) {
+    searchMessage.value = error.response?.status === 404
+      ? 'No exact match. Check the scientific name.'
+      : 'Unable to search right now. Please try again.'
+  } finally {
+    searching.value = false
+  }
+}
+
 onMounted(loadSpecies)
 </script>
 
@@ -35,7 +72,30 @@ onMounted(loadSpecies)
     <h1>Explore fish species</h1>
     <p>Discover fish for your virtual aquarium.</p>
 
-    <p v-if="loading">Loading fish...</p>
+    
+    
+    <form class="species-search" @submit.prevent="searchSpecies">
+        
+  <label for="species-name">Search by scientific name</label>
+
+  <div class="search-controls">
+    <input
+      id="species-name"
+      v-model="searchName"
+      placeholder="Example: Danio rerio"
+      required
+    >
+    <button
+      type="submit"
+      :disabled="searching || loading || !searchName.trim()"
+    >
+      {{ searching ? 'Searching...' : 'Search species' }}
+    </button>
+  </div>
+
+  <p role="status">{{ searchMessage }}</p>
+</form>
+<p v-if="loading">Loading fish...</p>
 
     <div v-else-if="errorMessage">
       <p>{{ errorMessage }}</p>
@@ -71,6 +131,29 @@ onMounted(loadSpecies)
       <summary>View species details</summary>
       <p>Family: {{ fish.family || 'Unavailable' }}</p>
       <p>Genus: {{ fish.genus || 'Unavailable' }}</p>
+      <template v-if="fish.conditions">
+  <p>
+    Temperature range:
+    {{ fish.conditions.temperature.min }}–{{ fish.conditions.temperature.max }}°C
+  </p>
+  <p>
+    pH range:
+    {{ fish.conditions.ph.min }}–{{ fish.conditions.ph.max }}
+  </p>
+  <p>
+  {{ fish.conditions.dataType === 'live-api'
+  ? 'Live condition data:'
+  : 'Stored reference ranges:' }}
+    <a
+      :href="fish.conditions.sourceUrl"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {{ fish.conditions.source }}
+    </a>
+  </p>
+</template>
+<p v-else>Conditions unavailable</p>
       <p>Species information source: {{ fish.source }}</p>
     </details>
   </article>
@@ -154,5 +237,41 @@ onMounted(loadSpecies)
   border-radius: 12px;
   background: #0a1b2c;
   color: #b5c8db;
+}
+
+.species-search {
+  margin-top: 24px;
+}
+
+.search-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.search-controls input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #29435b;
+  border-radius: 10px;
+  background: #11263c;
+  color: #eef6ff;
+}
+
+.search-controls button {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 10px;
+  background: #49d5da;
+  color: #081524;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.search-controls button:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 </style>
