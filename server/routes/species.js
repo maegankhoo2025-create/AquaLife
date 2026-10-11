@@ -1,15 +1,7 @@
 const express = require('express')
 const router = express.Router()
 
-// GET /api/species?name=Paracheirodon%20innesi
-router.get('/', async (req, res) => {
-  const name = req.query.name
-
-  if (typeof name !== 'string' || name.trim() === '') {
-    return res.status(400).json({ error: 'Please provide a species name' })
-  }
-
-  try {
+ async function getSpecies(name) {
     const url = new URL('https://api.gbif.org/v1/species/match')
     url.searchParams.set('name', name.trim())
 
@@ -18,7 +10,7 @@ router.get('/', async (req, res) => {
     })
 
     if (!response.ok) {
-      return res.status(502).json({ error: 'Species provider returned an error' })
+       throw new Error('Species provider returned an error')
     }
 
     const data = await response.json()
@@ -28,7 +20,9 @@ router.get('/', async (req, res) => {
       data.rank !== 'SPECIES' ||
       !data.usageKey
     ) {
-      return res.status(404).json({ error: 'No exact species match found' })
+      const error = new Error('No exact species match found')
+      error.status = 404
+      throw error
     }
 
         // Photo lookup is optional: GBIF data still works if it fails.
@@ -72,7 +66,7 @@ router.get('/', async (req, res) => {
       console.error('Photo lookup failed:', error.message)
     }
 
-        res.json({
+        return ({
       gbifKey: data.usageKey,
       scientificName: data.scientificName,
       canonicalName: data.canonicalName,
@@ -81,17 +75,57 @@ router.get('/', async (req, res) => {
       genus: data.genus ?? null,
       source: 'GBIF',
       photo,
+         })
+        } 
+
+// GET /api/species?name=Paracheirodon%20innesi
+
+router.get('/', async (req, res) => {
+  const name = req.query.name
+
+  if (typeof name !== 'string' || name.trim() === '') {
+    return res.status(400).json({ error: 'Please provide a species name' })
+  }
+
+  try {
+
+   // closes getSpecies
+        const species = await getSpecies(name)
+        res.json(species)
+    
+     } catch (error) {
+         console.error('Species lookup failed:', error.message)
+
+    res.status(error.status ?? 502).json({
+      error: error.status === 404
+        ? 'No exact species match found'
+        : 'Unable to retrieve species information',
     })
+   
+    }
+  }
+)
+
+router.get('/quiz-data', async (req, res) => {
+  const names = [
+    'Paracheirodon innesi',
+    'Betta splendens',
+    'Poecilia reticulata',
+  ]
+
+  try {
+    const species = await Promise.all(
+      names.map(name => getSpecies(name))
+    )
+
+    res.json({ species })
   } catch (error) {
-    console.error('Species lookup failed:', error.message)
+    console.error('Quiz species lookup failed:', error.message)
     res.status(502).json({
-      error: 'Unable to retrieve species information',
+      error: 'Unable to retrieve quiz species',
     })
   }
 })
-
 module.exports = router
 
 
-
-module.exports = router
