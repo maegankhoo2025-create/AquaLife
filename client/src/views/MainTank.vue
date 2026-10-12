@@ -34,8 +34,9 @@ const fishList = computed(() =>
   }),
 )
 
-function runTask(task) {
-  const earned = doTask(task.id, tank.value.id)
+async function runTask(task) {
+  const earned = await doTask(task.id, tank.value.id)
+  if (earned === null) return // doTask already showed the error
   notify(earned > 0 ? `${task.label}: +${earned} pearls` : `${task.label}: done`)
 }
 </script>
