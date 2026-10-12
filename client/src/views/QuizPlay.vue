@@ -1,46 +1,73 @@
 <script setup>
 // The quiz player: one question per screen, instant feedback, then a result screen.
-import { computed, ref } from 'vue'
+// Questions come from the server without their answers; each answer is checked
+// by the server, which also does the final marking.
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { finishQuiz, getQuizQuestions } from '../stores/game'
+import { answerQuestion, finishQuiz, getQuizQuestions, notify } from '../stores/game'
 import PearlCount from '../components/PearlCount.vue'
 
-const questions = getQuizQuestions()
+const questions = ref([])
+const loading = ref(true)
 
 const index = ref(0) // which question is on screen
 const chosen = ref(null) // index of the answer the user picked, null = not answered yet
+const feedback = ref(null) // { correct, isCorrect, fact } from the server
 const score = ref(0)
 const finished = ref(false)
 const reward = ref(0)
 
-const question = computed(() => questions[index.value])
-const answered = computed(() => chosen.value !== null)
-const isLast = computed(() => index.value === questions.length - 1)
+onMounted(async () => {
+  try {
+    questions.value = await getQuizQuestions()
+  } catch (error) {
+    console.error('Unable to load the quiz:', error)
+    notify('Unable to load the quiz. Please try again.', true)
+  } finally {
+    loading.value = false
+  }
+})
+
+const question = computed(() => questions.value[index.value])
+const answered = computed(() => feedback.value !== null)
+const isLast = computed(() => index.value === questions.value.length - 1)
 // The bar fills as questions are answered, not just shown.
 const progress = computed(
-  () => ((index.value + (answered.value ? 1 : 0)) / questions.length) * 100,
+  () => ((index.value + (answered.value ? 1 : 0)) / questions.value.length) * 100,
 )
 
-function choose(answerIndex) {
-  if (answered.value) return // only the first choice counts
+async function choose(answerIndex) {
+  if (chosen.value !== null) return // only the first choice counts
   chosen.value = answerIndex
-  if (answerIndex === question.value.correct) score.value += 1
+  try {
+    feedback.value = await answerQuestion(question.value.id, answerIndex)
+    chosen.value = feedback.value.chosen
+    if (feedback.value.isCorrect) score.value += 1
+  } catch (error) {
+    console.error('Unable to check the answer:', error)
+    notify('Unable to check that answer. Please try again.', true)
+    chosen.value = null
+  }
 }
 
-function next() {
+async function next() {
   if (isLast.value) {
-    reward.value = finishQuiz(score.value, questions.length)
+    const result = await finishQuiz()
+    if (!result) return // finishQuiz already showed the error
+    score.value = result.score
+    reward.value = result.reward
     finished.value = true
   } else {
     index.value += 1
     chosen.value = null
+    feedback.value = null
   }
 }
 
 // Colours an answer button once the question has been answered.
 function answerClass(answerIndex) {
   if (!answered.value) return ''
-  if (answerIndex === question.value.correct) return 'answer--correct'
+  if (answerIndex === feedback.value.correct) return 'answer--correct'
   if (answerIndex === chosen.value) return 'answer--wrong'
   return 'opacity-50'
 }
@@ -48,8 +75,14 @@ function answerClass(answerIndex) {
 
 <template>
   <main class="container al-page quiz-play">
+    <p v-if="loading" class="text-muted-al" role="status">Loading today's quiz…</p>
+
+    <p v-else-if="questions.length === 0" class="text-muted-al" role="status">
+      The quiz could not be loaded. <RouterLink :to="{ name: 'quiz' }">Back to quiz hub</RouterLink>
+    </p>
+
     <!-- Result screen -->
-    <section v-if="finished" class="al-card al-card--raised text-center">
+    <section v-else-if="finished" class="al-card al-card--raised text-center">
       <div class="result-icon" aria-hidden="true">🎉</div>
       <h1 class="al-title">{{ score }} / {{ questions.length }} correct</h1>
       <p v-if="reward > 0" class="fs-5 mt-2">You earned <PearlCount :amount="reward" signed /></p>
@@ -78,7 +111,17 @@ function answerClass(answerIndex) {
       </div>
 
       <div class="al-card">
-        <div class="al-ph question-art mb-3" aria-hidden="true">{{ question.emoji }}</div>
+        <figure v-if="question.photo" class="mb-3">
+          <img
+            class="question-photo"
+            :src="question.photo.url"
+            alt="Photo of the fish in this question"
+          />
+          <figcaption class="small text-muted-al mt-1">
+            {{ question.photo.attribution }} (iNaturalist)
+          </figcaption>
+        </figure>
+        <div v-else class="al-ph question-art mb-3" aria-hidden="true">{{ question.emoji }}</div>
         <h1 class="h4 mb-3">{{ question.question }}</h1>
 
         <!-- 2 x 2 from the sm breakpoint, one column on phones -->
@@ -88,7 +131,7 @@ function answerClass(answerIndex) {
               class="btn btn-ghost answer w-100 h-100"
               :class="answerClass(answerIndex)"
               type="button"
-              :aria-disabled="answered"
+              :aria-disabled="chosen !== null"
               @click="choose(answerIndex)"
             >
               {{ answer }}
@@ -101,12 +144,12 @@ function answerClass(answerIndex) {
           <p class="mb-2">
             <span
               class="al-chip"
-              :class="chosen === question.correct ? 'al-chip--ok' : 'al-chip--bad'"
+              :class="feedback.isCorrect ? 'al-chip--ok' : 'al-chip--bad'"
             >
-              {{ chosen === question.correct ? 'Correct!' : 'Not quite' }}
+              {{ feedback.isCorrect ? 'Correct!' : 'Not quite' }}
             </span>
           </p>
-          <p><strong>Did you know?</strong> {{ question.fact }}</p>
+          <p><strong>Did you know?</strong> {{ feedback.fact }}</p>
           <button class="btn btn-aqua w-100" type="button" @click="next">
             {{ isLast ? 'See results' : 'Next question' }}
           </button>
@@ -123,6 +166,14 @@ function answerClass(answerIndex) {
 
 .question-art {
   height: clamp(110px, 26vw, 200px);
+}
+
+.question-photo {
+  display: block;
+  width: 100%;
+  height: clamp(160px, 40vw, 280px);
+  object-fit: cover;
+  border-radius: var(--al-radius-sm);
 }
 
 .answer {

@@ -1,11 +1,12 @@
 // Daily quiz routes.
-// Questions are sent without their answers, and the server does the marking,
-// so nobody can earn pearls by just claiming a perfect score.
+// Questions come from live species data (see data/questions.js) and are sent
+// without their answers. The answers are kept in the user's session, and the
+// server does the marking, so nobody can earn pearls by just claiming a perfect score.
 
 const express = require('express')
 const User = require('../models/User')
-const { QUIZ_LENGTH, getQuestion, questionsForDay } = require('../data/questions')
-const { dayKey, yesterdayKey, currentStreak, changePearls } = require('../logic/gamification')
+const { QUIZ_LENGTH, getQuestionPool, questionsForDay } = require('../data/questions')
+const { dayKey, currentStreak, changePearls } = require('../logic/gamification')
 
 const router = express.Router()
 
@@ -21,7 +22,8 @@ function requireLogin(req, res) {
   return true
 }
 
-// GET /api/quiz -> today's questions (no answers) and whether today's reward is used up
+// GET /api/quiz -> today's questions (no answers) and whether today's reward is used up.
+// Starts a new attempt: the answers are remembered in the session for /answer and /submit.
 router.get('/', async (req, res) => {
   if (!requireLogin(req, res)) return
 
@@ -29,53 +31,70 @@ router.get('/', async (req, res) => {
     const user = await User.findById(req.session.userId)
     if (!user) return res.status(404).json({ message: 'User not found.' })
 
-    const questions = questionsForDay(dayKey()).map(({ id, emoji, question, answers }) => ({
-      id,
-      emoji,
-      question,
-      answers,
-    }))
+    const questions = questionsForDay(await getQuestionPool(), dayKey())
+    req.session.quiz = {
+      questions: questions.map(({ id, correct, fact, answers }) => ({ id, correct, fact, answerCount: answers.length })),
+      answers: {},
+    }
+
     return res.status(200).json({
-      questions,
+      questions: questions.map(({ id, emoji, question, answers, photo }) => ({ id, emoji, question, answers, photo })),
       doneToday: user.quiz.lastDay === dayKey(),
       streak: currentStreak(user),
     })
   } catch (error) {
     console.error('Get quiz failed:', error)
-    return res.status(500).json({ message: 'Unable to load the quiz. Please try again.' })
+    return res.status(503).json({ message: 'The quiz is unavailable right now. Please try again later.' })
   }
 })
 
-// POST /api/quiz/submit  body: { answers: { <questionId>: <index of chosen answer>, ... } }
-// Marks the quiz. Pearls are only paid for the first quiz of the day, so replaying is just practice.
+// POST /api/quiz/answer  body: { questionId, answer }  (answer = index of the chosen answer)
+// Gives instant feedback on one question. Only the first choice for each question counts,
+// so peeking at the right answer and then changing it does not earn anything.
+router.post('/answer', (req, res) => {
+  if (!requireLogin(req, res)) return
+
+  const quiz = req.session.quiz
+  const question = quiz?.questions.find((q) => q.id === req.body.questionId)
+  if (!question) return res.status(400).json({ message: 'That is not one of your quiz questions.' })
+
+  const answer = Number(req.body.answer)
+  if (!Number.isInteger(answer) || answer < 0 || answer >= question.answerCount) {
+    return res.status(400).json({ message: 'Please choose one of the answers.' })
+  }
+
+  if (quiz.answers[question.id] === undefined) quiz.answers[question.id] = answer
+  const chosen = quiz.answers[question.id]
+
+  return res.status(200).json({
+    chosen,
+    correct: question.correct,
+    isCorrect: chosen === question.correct,
+    fact: question.fact,
+  })
+})
+
+// POST /api/quiz/submit -> marks the answers given through /answer.
+// Pearls are only paid for the first quiz of the day, so replaying is just practice.
 router.post('/submit', async (req, res) => {
   if (!requireLogin(req, res)) return
 
-  const answers = req.body.answers
-  if (!answers || typeof answers !== 'object') {
-    return res.status(400).json({ message: 'Please send your answers.' })
-  }
-
-  // Accept today's or yesterday's questions, in case the quiz was started just before midnight.
-  const allowedIds = new Set(
-    [...questionsForDay(dayKey()), ...questionsForDay(yesterdayKey())].map((question) => question.id),
-  )
-  const ids = Object.keys(answers)
-  if (ids.length !== QUIZ_LENGTH || !ids.every((id) => allowedIds.has(id))) {
-    return res.status(400).json({ message: 'Those are not the questions for today’s quiz.' })
+  const quiz = req.session.quiz
+  if (!quiz || quiz.questions.some((question) => quiz.answers[question.id] === undefined)) {
+    return res.status(400).json({ message: `Please answer all ${QUIZ_LENGTH} questions first.` })
   }
 
   try {
     const user = await User.findById(req.session.userId)
     if (!user) return res.status(404).json({ message: 'User not found.' })
 
-    const results = ids.map((id) => {
-      const question = getQuestion(id)
-      const chosen = Number(answers[id])
-      return { id, chosen, correct: question.correct, isCorrect: chosen === question.correct, fact: question.fact }
+    const results = quiz.questions.map((question) => {
+      const chosen = quiz.answers[question.id]
+      return { id: question.id, chosen, correct: question.correct, isCorrect: chosen === question.correct, fact: question.fact }
     })
     const score = results.filter((result) => result.isCorrect).length
     const total = results.length
+    req.session.quiz = null // this attempt is finished
 
     let reward = 0
     if (user.quiz.lastDay !== dayKey()) {

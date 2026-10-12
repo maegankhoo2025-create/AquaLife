@@ -70,11 +70,16 @@ function onAdd({ item, quantity }) {
 function onConflictChoice(tankId) {
   const { item, quantity } = pendingConflict.value
   pendingConflict.value = null
-  buy(item, tankId, quantity)
+  buy(item, tankId, quantity, true) // the user chose: a better tank, or "add anyway"
 }
 
-function buy(item, tankId, quantity) {
-  const result = buyItem(item, tankId, quantity)
+async function buy(item, tankId, quantity, force = false) {
+  const result = await buyItem(item, tankId, quantity, force)
+  // The server can still spot a conflict (e.g. conditions changed elsewhere): ask the user.
+  if (result.conflict) {
+    pendingConflict.value = { item, quantity }
+    return
+  }
   notify(result.message, !result.ok)
   // Follow the fish: if it went to another tank, show that tank next.
   if (result.ok) game.currentTankId = tankId

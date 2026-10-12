@@ -7,7 +7,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginApi from '../LoginApi'
 
 // Bring in setUser so the pages know the logged-in user's name and email
-import { setUser } from '../stores/game'
+import { setUser, syncGame } from '../stores/game'
 
 // Bring in each page (screen) of the app so the router can show them
 import LoginPage from '../views/LoginPage.vue'   // the login screen
@@ -100,6 +100,7 @@ router.beforeEach(async (to) => {
     // If the server says yes, they are logged in...
     if (response.data.loggedIn) {
       setUser(response.data.user) // remember who they are for the navbar and profile
+      await syncGame() // load their pearls, tanks, history and quiz progress from the server
       return true // ...let them into the page
     }
 

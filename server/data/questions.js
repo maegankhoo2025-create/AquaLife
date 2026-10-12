@@ -1,56 +1,18 @@
-// Quiz questions: a few general fish-care questions (copied from
-// client/src/data/mock.js) plus questions generated from the real species
-// data in species.js, so new species automatically get new questions.
+// Quiz questions built from live species data (the APIs in our proposal):
+//   - GBIF: family and scientific name questions
+//   - iNaturalist: "Which fish is in this photo?" questions and common names
+//   - Aquarist Atlas, falling back to stored FishBase values: temperature and pH questions
+// The lookups go through getSpecies() in routes/species.js for every fish in the shop.
 //
-// Every question has an id, and its answer order is fixed by that id,
-// so the server can mark an answer without remembering what it sent.
+// Results are cached for a day. If the APIs are down when the cache expires,
+// the last questions that were fetched keep being used.
 
 const { SPECIES } = require('./species')
+const { getSpecies: lookupSpecies } = require('../routes/species')
 
 const QUIZ_LENGTH = 5
-
-const GENERAL_QUESTIONS = [
-  {
-    id: 'goldfish-temp',
-    emoji: '🐠',
-    question: 'Which water temperature suits a goldfish best?',
-    answers: ['16–24°C', '26–30°C', '30–34°C', '8–12°C'],
-    correct: 0,
-    fact: 'Goldfish are cool-water fish. Warm tropical tanks stress them and shorten their lives.',
-  },
-  {
-    id: 'schooling',
-    emoji: '🐟',
-    question: 'Neon tetras are schooling fish. What does that mean for your tank?',
-    answers: ['Keep only one per tank', 'Keep them in a group', 'They need salt water', 'They must live with large fish'],
-    correct: 1,
-    fact: 'Schooling fish feel safe in numbers. A group of six or more shows brighter colours and less stress.',
-  },
-  {
-    id: 'ph-meaning',
-    emoji: '🧪',
-    question: 'What does pH measure in aquarium water?',
-    answers: ['How warm it is', 'How much oxygen it holds', 'How acidic or alkaline it is', 'How salty it is'],
-    correct: 2,
-    fact: 'pH 7 is neutral. Most community fish do well between 6.5 and 7.5, and sudden swings are more harmful than a slightly off value.',
-  },
-  {
-    id: 'oscar-guppy',
-    emoji: '🐡',
-    question: 'Why should an Oscar not share a tank with guppies?',
-    answers: ['Guppies need colder water', 'Oscars are large predators and will eat them', 'They need different lighting', 'Guppies are too aggressive'],
-    correct: 1,
-    fact: 'Temperament and adult size matter as much as water conditions when choosing tank mates.',
-  },
-  {
-    id: 'water-changes',
-    emoji: '🧽',
-    question: 'What is the safest routine for keeping water clean?',
-    answers: ['Replace all the water once a year', 'Never change the water', 'Change part of the water regularly', 'Add more fish to eat the waste'],
-    correct: 2,
-    fact: 'Small, regular water changes remove waste without shocking the fish or wiping out helpful bacteria.',
-  },
-]
+const CACHE_HOURS = 24
+const MAX_TEMP_RANGE = 15 // °C: wider ranges are treated as bad data and skipped
 
 // A simple seeded random number generator: the same seed always gives the
 // same sequence, so shuffles can be repeated exactly.
@@ -76,60 +38,129 @@ function shuffle(list, seedText) {
   return copy
 }
 
-// Shuffles a question's answers and moves "correct" to follow the right one.
-function withShuffledAnswers(question) {
-  const right = question.answers[question.correct]
-  const answers = shuffle(question.answers, question.id)
-  return { ...question, answers, correct: answers.indexOf(right) }
+// Builds a multiple-choice question: the right answer plus up to 3 different
+// wrong ones, in a shuffled order. Returns null if there are not enough wrong answers.
+function makeQuestion({ id, emoji, question, right, wrongPool, fact, photo = null }) {
+  const wrong = shuffle([...new Set(wrongPool)].filter((text) => text && text !== right), id).slice(0, 3)
+  if (wrong.length < 3) return null
+  const answers = shuffle([right, ...wrong], id + '-answers')
+  return { id, emoji, question, answers, correct: answers.indexOf(right), fact, photo }
 }
 
 function rangeText(range, unit = '') {
-  return `${range[0]}–${range[1]}${unit}`
+  return `${range.min}–${range.max}${unit}`
 }
 
-function temperatureQuestion(species) {
-  const right = rangeText(species.temp, '°C')
-  const wrong = [...new Set(SPECIES.map((s) => rangeText(s.temp, '°C')))].filter((text) => text !== right)
-  return withShuffledAnswers({
-    id: 'temp-' + species.id,
+// The common name from iNaturalist, or the shop name if iNaturalist has none.
+function displayName(fish) {
+  return fish.api.commonName || fish.name
+}
+
+function temperatureQuestion(fish, all) {
+  const temp = fish.api.conditions?.temperature
+  if (!temp || temp.max - temp.min > MAX_TEMP_RANGE) return null
+  return makeQuestion({
+    id: 'temp-' + fish.id,
     emoji: '🌡️',
-    question: `Which water temperature suits a ${species.name} (${species.sci})?`,
-    answers: [right, ...shuffle(wrong, 'temp-' + species.id).slice(0, 3)],
-    correct: 0,
-    fact: `${species.name} needs ${right}. Outside its range a fish gets stressed and slowly loses health.`,
+    question: `Which water temperature suits a ${displayName(fish)} (${fish.api.canonicalName})?`,
+    right: rangeText(temp, '°C'),
+    wrongPool: all
+      .map((other) => other.api.conditions?.temperature)
+      .filter((t) => t && t.max - t.min <= MAX_TEMP_RANGE)
+      .map((t) => rangeText(t, '°C')),
+    fact: `${displayName(fish)} needs ${rangeText(temp, '°C')} (source: ${fish.api.conditions.source}). Outside its range a fish gets stressed and slowly loses health.`,
   })
 }
 
-const TEMPERAMENT_FACTS = {
-  peaceful: 'It gets along with other peaceful fish of a similar size.',
-  'semi-aggressive': 'It may nip or chase some tank mates, so choose its companions carefully.',
-  aggressive: 'It may attack or eat smaller fish, so it should not share a tank with peaceful species.',
+function phQuestion(fish, all) {
+  const ph = fish.api.conditions?.ph
+  if (!ph) return null
+  return makeQuestion({
+    id: 'ph-' + fish.id,
+    emoji: '🧪',
+    question: `Which pH range suits a ${displayName(fish)}?`,
+    right: 'pH ' + rangeText(ph),
+    wrongPool: all.map((other) => other.api.conditions?.ph).filter(Boolean).map((p) => 'pH ' + rangeText(p)),
+    fact: `${displayName(fish)} does best at pH ${rangeText(ph)} (source: ${fish.api.conditions.source}). Sudden pH swings are more harmful than a slightly off value.`,
+  })
 }
 
-function temperamentQuestion(species) {
-  return {
-    id: 'temperament-' + species.id,
-    emoji: '🐟',
-    question: `How would you describe the temperament of a ${species.name}?`,
-    answers: ['Peaceful', 'Semi-aggressive', 'Aggressive'],
-    correct: ['peaceful', 'semi-aggressive', 'aggressive'].indexOf(species.temperament),
-    fact: `The ${species.name} is ${species.temperament}. ${TEMPERAMENT_FACTS[species.temperament]}`,
+function familyQuestion(fish, all) {
+  if (!fish.api.family) return null
+  return makeQuestion({
+    id: 'family-' + fish.id,
+    emoji: '🧬',
+    question: `Which family does the ${displayName(fish)} belong to?`,
+    right: fish.api.family,
+    wrongPool: all.map((other) => other.api.family),
+    fact: `${displayName(fish)} (${fish.api.canonicalName}) is in the family ${fish.api.family}, according to GBIF.`,
+  })
+}
+
+function scientificNameQuestion(fish, all) {
+  return makeQuestion({
+    id: 'sci-' + fish.id,
+    emoji: '🔬',
+    question: `What is the scientific name of the ${displayName(fish)}?`,
+    right: fish.api.canonicalName,
+    wrongPool: all.map((other) => other.api.canonicalName),
+    fact: `Scientists call the ${displayName(fish)} ${fish.api.canonicalName}. Its genus is ${fish.api.genus || fish.api.canonicalName.split(' ')[0]} (source: GBIF).`,
+  })
+}
+
+function photoQuestion(fish, all) {
+  if (!fish.api.photo) return null
+  return makeQuestion({
+    id: 'photo-' + fish.id,
+    emoji: '📷',
+    question: 'Which fish is in this photo?',
+    right: displayName(fish),
+    wrongPool: all.map(displayName),
+    fact: `This is a ${displayName(fish)} (${fish.api.canonicalName}). Photo: ${fish.api.photo.attribution}, via iNaturalist.`,
+    photo: { url: fish.api.photo.url, attribution: fish.api.photo.attribution, sourceUrl: fish.api.photo.sourceUrl },
+  })
+}
+
+const QUESTION_MAKERS = [temperatureQuestion, phQuestion, familyQuestion, scientificNameQuestion, photoQuestion]
+
+// Looks up every shop fish and turns the results into questions.
+async function buildPool() {
+  const results = await Promise.allSettled(SPECIES.map((species) => lookupSpecies(species.sci)))
+  const fishWithData = SPECIES.map((species, i) =>
+    results[i].status === 'fulfilled' ? { ...species, api: results[i].value } : null,
+  ).filter(Boolean)
+
+  return fishWithData
+    .flatMap((fish) => QUESTION_MAKERS.map((make) => make(fish, fishWithData)))
+    .filter(Boolean)
+}
+
+let cache = { pool: null, builtAt: 0 }
+let building = null
+
+// All the questions we can ask right now (cached; see top of file).
+async function getQuestionPool() {
+  const fresh = cache.pool && Date.now() - cache.builtAt < CACHE_HOURS * 60 * 60 * 1000
+  if (fresh) return cache.pool
+
+  if (!building) {
+    building = buildPool()
+      .then((pool) => {
+        if (pool.length >= QUIZ_LENGTH) cache = { pool, builtAt: Date.now() }
+        else console.error(`Only ${pool.length} quiz questions could be built from the species APIs.`)
+      })
+      .catch((error) => console.error('Building quiz questions failed:', error.message))
+      .finally(() => (building = null))
   }
-}
+  await building
 
-const ALL_QUESTIONS = [
-  ...GENERAL_QUESTIONS.map(withShuffledAnswers),
-  ...SPECIES.map(temperatureQuestion),
-  ...SPECIES.map(temperamentQuestion),
-]
-
-function getQuestion(id) {
-  return ALL_QUESTIONS.find((question) => question.id === id)
+  if (!cache.pool) throw new Error('The species APIs are unavailable')
+  return cache.pool // the new pool, or the last good one if this refresh failed
 }
 
 // The same QUIZ_LENGTH questions for everyone on a given day (YYYY-MM-DD).
-function questionsForDay(day) {
-  return shuffle(ALL_QUESTIONS, 'quiz-' + day).slice(0, QUIZ_LENGTH)
+function questionsForDay(pool, day) {
+  return shuffle(pool, 'quiz-' + day).slice(0, QUIZ_LENGTH)
 }
 
-module.exports = { QUIZ_LENGTH, getQuestion, questionsForDay }
+module.exports = { QUIZ_LENGTH, getQuestionPool, questionsForDay }
