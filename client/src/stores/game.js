@@ -8,6 +8,13 @@ import { computed, reactive, watch } from 'vue'
 import LoginApi from '../LoginApi'
 import { DAILY_TASKS, ITEMS } from '../data/mock'
 
+const shopItems = reactive(
+  ITEMS.map(item => ({
+    ...item,
+    photos: [...(item.photos ?? [])],
+  }))
+)
+
 const STORAGE_KEY = 'aqualife-prefs-v1'
 const XP_PER_LEVEL = 200
 const CONDITION_SAVE_DELAY = 400 // ms to wait after the last slider move before saving
@@ -177,11 +184,30 @@ export const xpPerLevel = XP_PER_LEVEL
 
 // ---- Shop items ----
 export function getItems() {
-  return ITEMS
+  return shopItems
 }
 
 export function getItem(id) {
-  return ITEMS.find((item) => item.id === id)
+  return shopItems.find(item => item.id === id)
+}
+
+export async function loadSpeciesInfo() {
+  const fishItems = shopItems.filter(item => item.category === 'fish')
+
+  for (const item of fishItems) {
+    if (item.speciesInfo) continue
+
+    try {
+      const { data } = await LoginApi.get('/api/species', {
+        params: { name: item.sci },
+      })
+
+      item.speciesInfo = data
+      item.photos = data.photo ? [data.photo.url] : []
+    } catch (error) {
+      console.error(`Unable to load ${item.sci}:`, error)
+    }
+  }
 }
 
 // ---- Tanks ----

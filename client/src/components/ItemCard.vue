@@ -67,6 +67,16 @@ function onMainClick() {
     </button>
 
     <div v-if="expanded" class="mt-2">
+      <p v-if="item.speciesInfo?.photo" class="small mt-2 mb-0">
+      <a
+        :href="item.speciesInfo.photo.sourceUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-muted-al"
+      >
+        {{ item.speciesInfo.photo.attribution }}
+      </a>
+    </p>
       <p class="small mb-2">{{ item.blurb }}</p>
       <button class="btn btn-aqua w-100" type="button" @click="emit('open', item)">
         View details

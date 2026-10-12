@@ -31,8 +31,8 @@ const stats = computed(() => {
   if (item.category === 'fish') {
     list.push(
       { label: 'Temperament', value: item.temperament },
-      { label: 'Temperature', value: `${item.temp[0]}–${item.temp[1]}°C` },
-      { label: 'pH', value: `${item.ph[0]}–${item.ph[1]}` },
+     
+      
       { label: 'Adult size', value: `${item.size} cm` },
     )
   }
@@ -55,6 +55,12 @@ const total = computed(() => props.item.price * quantity.value)
           <img v-if="item.photos[photoIndex]" :src="item.photos[photoIndex]" :alt="item.name" />
           <span v-else aria-hidden="true">{{ item.emoji }}</span>
         </div>
+        <p v-if="item.speciesInfo?.photo" class="small mt-2">
+         <a :href="item.speciesInfo.photo.sourceUrl" target="_blank"
+         rel="noopener noreferrer">
+    {{ item.speciesInfo.photo.attribution }}
+  </a>
+</p>
         <div v-if="item.photos.length > 1" class="d-flex gap-2 mt-2">
           <button
             v-for="(url, index) in item.photos.slice(0, 4)"
@@ -73,6 +79,29 @@ const total = computed(() => props.item.price * quantity.value)
       <div class="col-12 col-sm-7">
         <p v-if="item.sci" class="fst-italic text-muted-al mb-1">{{ item.sci }}</p>
         <p>{{ item.blurb }}</p>
+        <template v-if="item.speciesInfo">
+  <p>Family: {{ item.speciesInfo.family || 'Unavailable' }}</p>
+  <p>Genus: {{ item.speciesInfo.genus || 'Unavailable' }}</p>
+
+  <div v-if="item.speciesInfo.conditions">
+    <p>
+      Species temperature range:
+      {{ item.speciesInfo.conditions.temperature.min }}–{{ item.speciesInfo.conditions.temperature.max }}°C
+    </p>
+    <p>
+      Species pH range:
+      {{ item.speciesInfo.conditions.ph.min }}–{{ item.speciesInfo.conditions.ph.max }}
+    </p>
+    <a
+      :href="item.speciesInfo.conditions.sourceUrl"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Source: {{ item.speciesInfo.conditions.source }}
+    </a>
+  </div>
+  <p v-else>Species conditions unavailable.</p>
+</template>
 
         <dl class="row g-2 mb-0">
           <div v-for="stat in stats" :key="stat.label" class="col-6">
@@ -84,6 +113,9 @@ const total = computed(() => props.item.price * quantity.value)
 
       <div class="col-12">
         <h3 class="h6">Compatibility</h3>
+        <p class="small text-muted-al">
+         Checked against the game's configured care ranges.
+         </p>
         <ul class="al-list">
           <li v-for="check in tankChecks" :key="check.tank.id" class="align-items-start">
             <span class="al-chip" :class="check.ok ? 'al-chip--ok' : 'al-chip--bad'">
