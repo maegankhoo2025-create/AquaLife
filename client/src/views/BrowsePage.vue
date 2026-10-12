@@ -1,277 +1,258 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import SpeciesExplorer from '../components/SpeciesExplorer.vue'
+import { computed, ref } from 'vue'
+import {
+  buyItem,
+  checkCompatibility,
+  currentTank,
+  game,
+  getItems,
+  notify,
+} from '../stores/game'
+import ConflictModal from '../components/ConflictModal.vue'
+import ItemCard from '../components/ItemCard.vue'
+import ItemModal from '../components/ItemModal.vue'
 
-const species = ref([])
-const loading = ref(true)
-const errorMessage = ref('')
+const items = getItems()
+const tank = currentTank
 
-async function loadSpecies() {
-  loading.value = true
-  errorMessage.value = ''
+// ---- Filters ----
+const categories = [
+  { value: 'all', label: 'All' },
+  { value: 'fish', label: 'Fish' },
+  { value: 'plant', label: 'Plants' },
+  { value: 'decor', label: 'Decor' },
+]
+const temperamentOptions = ['peaceful', 'semi-aggressive', 'aggressive']
+const careOptions = ['easy', 'moderate', 'hard']
 
-  try {
-    const response = await axios.get(
-      'http://localhost:8000/api/species/quiz-data'
-    )
-    species.value = response.data.species
-  } catch (error) {
-    console.error('Unable to load species:', error)
-    errorMessage.value = 'Unable to load fish. Please try again.'
-  } finally {
-    loading.value = false
+const category = ref('all')
+const onlyFits = ref(false)
+const temperaments = ref([]) // empty means "any"
+const careLevels = ref([])
+
+const filteredItems = computed(() =>
+  items.filter((item) => {
+    if (category.value !== 'all' && item.category !== category.value) return false
+    if (onlyFits.value && !checkCompatibility(item, tank.value).ok) return false
+    if (temperaments.value.length > 0 && !temperaments.value.includes(item.temperament)) return false
+    if (careLevels.value.length > 0 && !careLevels.value.includes(item.care)) return false
+    return true
+  }),
+)
+
+function clearFilters() {
+  category.value = 'all'
+  onlyFits.value = false
+  temperaments.value = []
+  careLevels.value = []
+}
+
+// Fish that suit the current tank, for the "Recommended" row.
+const recommended = computed(() =>
+  items
+    .filter((item) => item.category === 'fish' && checkCompatibility(item, tank.value).ok)
+    .slice(0, 6),
+)
+
+// ---- Item details and the conflict flow ----
+const selectedItem = ref(null) // item shown in the quick-view dialog
+const pendingConflict = ref(null) // { item, quantity } waiting for the user's decision
+
+function onAdd({ item, quantity }) {
+  selectedItem.value = null
+  if (checkCompatibility(item, tank.value).ok) {
+    buy(item, tank.value.id, quantity)
+  } else {
+    pendingConflict.value = { item, quantity }
   }
 }
 
-const searchName = ref('')
-const searching = ref(false)
-const searchMessage = ref('')
-
-async function searchSpecies() {
-  const name = searchName.value.trim()
-  if (!name || searching.value) return
-
-  searching.value = true
-  searchMessage.value = ''
-
-  try {
-    const response = await axios.get(
-      'http://localhost:8000/api/species',
-      { params: { name } }
-    )
-
-    const fish = response.data
-    const exists = species.value.some(
-      item => item.gbifKey === fish.gbifKey
-    )
-
-    if (exists) {
-      searchMessage.value = 'This species is already displayed.'
-    } else {
-      species.value.push(fish)
-      searchMessage.value = 'Species added to the results.'
-    }
-  } catch (error) {
-    searchMessage.value = error.response?.status === 404
-      ? 'No exact match. Check the scientific name.'
-      : 'Unable to search right now. Please try again.'
-  } finally {
-    searching.value = false
-  }
+function onConflictChoice(tankId) {
+  const { item, quantity } = pendingConflict.value
+  pendingConflict.value = null
+  buy(item, tankId, quantity, true) // the user chose: a better tank, or "add anyway"
 }
 
-onMounted(loadSpecies)
+async function buy(item, tankId, quantity, force = false) {
+  const result = await buyItem(item, tankId, quantity, force)
+  // The server can still spot a conflict (e.g. conditions changed elsewhere): ask the user.
+  if (result.conflict) {
+    pendingConflict.value = { item, quantity }
+    return
+  }
+  notify(result.message, !result.ok)
+  // Follow the fish: if it went to another tank, show that tank next.
+  if (result.ok) game.currentTankId = tankId
+}
 </script>
 
-
-
-
-
 <template>
-  <main class="browse-page">
-    <h1>Explore fish species</h1>
-    <p>Discover fish for your virtual aquarium.</p>
-
-    
-    
-    <form class="species-search" @submit.prevent="searchSpecies">
-        
-  <label for="species-name">Search by scientific name</label>
-
-  <div class="search-controls">
-    <input
-      id="species-name"
-      v-model="searchName"
-      placeholder="Example: Danio rerio"
-      required
-    >
-    <button
-      type="submit"
-      :disabled="searching || loading || !searchName.trim()"
-    >
-      {{ searching ? 'Searching...' : 'Search species' }}
-    </button>
-  </div>
-
-  <p role="status">{{ searchMessage }}</p>
-</form>
-<p v-if="loading">Loading fish...</p>
-
-    <div v-else-if="errorMessage">
-      <p>{{ errorMessage }}</p>
-      <button @click="loadSpecies">Try again</button>
+  <main class="container al-page">
+    <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-3">
+      <h1 class="al-title">Shop</h1>
+      <div class="shop-for">
+        <label for="shop-tank" class="small text-muted-al">Shopping for</label>
+        <select id="shop-tank" v-model="game.currentTankId" class="form-select">
+          <option v-for="t in game.tanks" :key="t.id" :value="t.id">{{ t.name }}</option>
+        </select>
+      </div>
     </div>
 
-    <div v-else  class="species-grid">
-  <article v-for="fish in species" :key="fish.gbifKey" class="species-card">
-    <h2>{{ fish.commonName || fish.canonicalName }}</h2>
-    <p><em>{{ fish.canonicalName }}</em></p>
+    <!-- Recommended row: scrolls sideways inside its own box, never the page -->
+    <section v-if="recommended.length > 0" class="mb-4" aria-labelledby="recommended-title">
+      <h2 id="recommended-title" class="h5">Recommended for {{ tank.name }}</h2>
+      <div class="carousel-row">
+        <div v-for="item in recommended" :key="item.id" class="carousel-row__item">
+          <ItemCard :item="item" :tank="tank" @open="selectedItem = $event" />
+        </div>
+      </div>
+    </section>
 
-    <template v-if="fish.photo">
-      <img
-        :src="fish.photo.url"
-        :alt="fish.commonName || fish.canonicalName"
-        width="240"
-      >
-      <p>
-        <a
-          :href="fish.photo.sourceUrl"
-          target="_blank"
-          rel="noopener noreferrer"
+    <div class="row g-3">
+      <!--
+        Filters. "offcanvas-lg" is a Bootstrap class that makes this a normal
+        sidebar from 992px up, and a slide-up sheet (opened by the button below)
+        on smaller screens.
+      -->
+      <div class="col-12 col-lg-3">
+        <button
+          class="btn btn-ghost w-100 d-lg-none"
+          type="button"
+          data-bs-toggle="offcanvas"
+          data-bs-target="#shop-filters"
+          aria-controls="shop-filters"
         >
-          {{ fish.photo.attribution }}
-        </a>
-      </p>
-    </template>
-    <div v-else class="photo-placeholder">
-         Photo unavailable
+          Filters
+        </button>
+
+        <div
+          id="shop-filters"
+          class="offcanvas-lg offcanvas-bottom filters"
+          tabindex="-1"
+          aria-labelledby="filters-title"
+        >
+          <div class="offcanvas-header justify-content-between">
+            <h2 id="filters-title" class="h5 mb-0">Filters</h2>
+            <button
+              class="btn btn-ghost d-lg-none"
+              type="button"
+              data-bs-dismiss="offcanvas"
+              data-bs-target="#shop-filters"
+            >
+              Done
+            </button>
+          </div>
+
+          <div class="offcanvas-body d-block">
+            <h3 class="h6">Category</h3>
+            <div class="al-pills mb-3">
+              <button
+                v-for="option in categories"
+                :key="option.value"
+                type="button"
+                :aria-pressed="category === option.value"
+                @click="category = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+
+            <label class="form-check al-check mb-3">
+              <input v-model="onlyFits" class="form-check-input" type="checkbox" />
+              <span>Only fits {{ tank.name }}</span>
+            </label>
+
+            <fieldset class="mb-3">
+              <legend class="h6">Temperament</legend>
+              <label v-for="option in temperamentOptions" :key="option" class="form-check al-check">
+                <input
+                  v-model="temperaments"
+                  class="form-check-input"
+                  type="checkbox"
+                  :value="option"
+                />
+                <span class="text-capitalize">{{ option }}</span>
+              </label>
+            </fieldset>
+
+            <fieldset class="mb-3">
+              <legend class="h6">Care level</legend>
+              <label v-for="option in careOptions" :key="option" class="form-check al-check">
+                <input
+                  v-model="careLevels"
+                  class="form-check-input"
+                  type="checkbox"
+                  :value="option"
+                />
+                <span class="text-capitalize">{{ option }}</span>
+              </label>
+            </fieldset>
+
+            <button class="btn btn-ghost w-100" type="button" @click="clearFilters">
+              Clear filters
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card grid: 2 per row on phones, 3 from md, 4 from xl -->
+      <section class="col-12 col-lg-9" aria-label="Shop items">
+        <p class="small text-muted-al" role="status">{{ filteredItems.length }} items</p>
+        <div class="row g-3">
+          <div v-for="item in filteredItems" :key="item.id" class="col-6 col-md-4 col-xl-3">
+            <ItemCard :item="item" :tank="tank" @open="selectedItem = $event" />
+          </div>
+        </div>
+        <p v-if="filteredItems.length === 0" class="al-card text-center">
+          Nothing matches these filters.
+          <button class="btn btn-link" type="button" @click="clearFilters">Clear filters</button>
+        </p>
+      </section>
     </div>
 
-    <details>
-      <summary>View species details</summary>
-      <p>Family: {{ fish.family || 'Unavailable' }}</p>
-      <p>Genus: {{ fish.genus || 'Unavailable' }}</p>
-      <template v-if="fish.conditions">
-  <p>
-    Temperature range:
-    {{ fish.conditions.temperature.min }}–{{ fish.conditions.temperature.max }}°C
-  </p>
-  <p>
-    pH range:
-    {{ fish.conditions.ph.min }}–{{ fish.conditions.ph.max }}
-  </p>
-  <p>
-  {{ fish.conditions.dataType === 'live-api'
-  ? 'Live condition data:'
-  : 'Stored reference ranges:' }}
-    <a
-      :href="fish.conditions.sourceUrl"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      {{ fish.conditions.source }}
-    </a>
-  </p>
-</template>
-<p v-else>Conditions unavailable</p>
-      <p>Species information source: {{ fish.source }}</p>
-    </details>
-  </article>
-</div>
+    <ItemModal :item="selectedItem" :tank="tank" @close="selectedItem = null" @add="onAdd" />
+    <ConflictModal
+      :pending="pendingConflict"
+      :tank="tank"
+      @close="pendingConflict = null"
+      @add="onConflictChoice"
+    />
+    <SpeciesExplorer />
   </main>
 </template>
 
 <style scoped>
-.browse-page {
-  min-height: 100vh;
-  padding: 32px;
-  background: #081524;
-  color: #eef6ff;
+.shop-for {
+  min-width: min(100%, 12rem);
 }
 
-.browse-page > p {
-  color: #b5c8db;
-}
-
-.species-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 24px;
-  margin-top: 24px;
-}
-
-.species-card {
-  min-width: 0;
-  padding: 20px;
-  border: 1px solid #29435b;
-  border-radius: 18px;
-  background: #11263c;
-}
-
-.species-card h2 {
-  margin-top: 0;
-  font-size: 1.3rem;
-}
-
-.species-card img {
-  display: block;
-  width: 100%;
-  height: 190px;
-  object-fit: contain;
-  background: #0a1b2c;
-  border-radius: 12px;
-}
-
-.species-card a {
-  color: #75e5e8;
-  font-size: 0.8rem;
-  overflow-wrap: anywhere;
-}
-
-.species-card summary {
-  padding: 12px 0;
-  color: #75e5e8;
-  cursor: pointer;
-}
-
-.species-card details {
-  margin-top: 16px;
-  border-top: 1px solid #29435b;
-}
-
-@media (max-width: 600px) {
-  .browse-page {
-    padding: 20px 16px;
-  }
-
-  .species-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.photo-placeholder {
-  height: 190px;
+.carousel-row {
+  position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  background: #0a1b2c;
-  color: #b5c8db;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  /* room so the hover zoom and glow are not cut off by the scrolling box */
+  padding: 0.75rem 0.5rem;
+  margin-inline: -0.5rem;
 }
 
-.species-search {
-  margin-top: 24px;
+.carousel-row__item {
+  flex: 0 0 clamp(150px, 42vw, 220px);
+  scroll-snap-align: start;
 }
 
-.search-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 8px;
+.filters {
+  --bs-offcanvas-bg: var(--al-surface-1);
+  --bs-offcanvas-height: min(80dvh, 620px);
 }
 
-.search-controls input {
-  flex: 1;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid #29435b;
-  border-radius: 10px;
-  background: #11263c;
-  color: #eef6ff;
-}
-
-.search-controls button {
-  padding: 12px 18px;
-  border: none;
-  border-radius: 10px;
-  background: #49d5da;
-  color: #081524;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.search-controls button:disabled {
-  opacity: 0.6;
-  cursor: default;
+/* From lg the filters are a sidebar, so the sheet's header button is not needed */
+@media (min-width: 992px) {
+  .filters .offcanvas-header {
+    display: flex;
+    padding: 0 0 0.75rem;
+  }
 }
 </style>

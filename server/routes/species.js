@@ -183,5 +183,5 @@ router.get('/quiz-data', async (req, res) => {
   }
 })
 module.exports = router
-
-
+// Also used by the quiz to build questions from live species data
+module.exports.getSpecies = getSpecies

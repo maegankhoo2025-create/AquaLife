@@ -6,12 +6,17 @@ import { createRouter, createWebHistory } from 'vue-router'
 // Bring in LoginApi, our helper for talking to the backend server
 import LoginApi from '../LoginApi'
 
+// Bring in setUser so the pages know the logged-in user's name and email
+import { setUser, syncGame } from '../stores/game'
+
 // Bring in each page (screen) of the app so the router can show them
 import LoginPage from '../views/LoginPage.vue'   // the login screen
+import Dashboard from '../views/Dashboard.vue'   // the dashboard (home) screen
 import MainTank from '../views/MainTank.vue'     // the main tank screen
 import BrowsePage from '../views/BrowsePage.vue' // the browse screen
 import History from '../views/History.vue'       // the history screen
-import Quiz from '../views/Quiz.vue'             // the quiz screen
+import Quiz from '../views/Quiz.vue'             // the quiz hub screen
+import QuizPlay from '../views/QuizPlay.vue'     // the screen where a quiz is played
 import Profile from '../views/Profile.vue'       // the profile screen
 
 // Build the router: the "map" that says which address shows which page
@@ -29,7 +34,13 @@ const router = createRouter({
     },
     {
       path: '/',                // the home address (just the website name)
-      redirect: '/main-tank',   // don't show anything here, jump to /main-tank instead
+      redirect: '/dashboard',   // don't show anything here, jump to /dashboard instead
+    },
+    {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: Dashboard,
+      meta: { requiresAuth: true }, // label: login required
     },
     {
       path: '/main-tank',
@@ -53,6 +64,12 @@ const router = createRouter({
       path: '/quiz',
       name: 'quiz',
       component: Quiz,
+      meta: { requiresAuth: true }, // label: login required
+    },
+    {
+      path: '/quiz/play',
+      name: 'quiz-play',
+      component: QuizPlay,
       meta: { requiresAuth: true }, // label: login required
     },
     {
@@ -82,6 +99,8 @@ router.beforeEach(async (to) => {
 
     // If the server says yes, they are logged in...
     if (response.data.loggedIn) {
+      setUser(response.data.user) // remember who they are for the navbar and profile
+      await syncGame() // load their pearls, tanks, history and quiz progress from the server
       return true // ...let them into the page
     }
 

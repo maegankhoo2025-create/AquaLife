@@ -1,0 +1,393 @@
+/*
+  AquaLife "deep ocean" theme.
+  Every colour in the app comes from the variables below, so a colour only has
+  to be changed in one place. Components should use var(--al-...) and the
+  .al-* classes instead of hard-coding colours.
+*/
+
+:root {
+  /* Backgrounds, from deepest to lightest */
+  --al-bg: #0a1628;
+  --al-surface-1: #10213a;
+  --al-surface-2: #16304f;
+  --al-surface-3: #1b3558;
+
+  /* Text */
+  --al-text: #e8f1fb;
+  --al-muted: #8aa3c2;
+
+  /* Accent and status colours */
+  --al-aqua: #4fd8e0;
+  --al-ok: #5be3a0;
+  --al-warn: #ffc56b;
+  --al-bad: #ff7a6b;
+
+  --al-glow: 0 0 18px color-mix(in srgb, var(--al-aqua) 40%, transparent);
+  --al-border: color-mix(in srgb, var(--al-muted) 22%, transparent);
+
+  --al-radius-sm: 12px;
+  --al-radius: 16px;
+  --al-radius-lg: 24px;
+
+  /* Smallest comfortable size for something you tap with a finger */
+  --al-tap: 44px;
+}
+
+/* ---- Bootstrap overrides: point Bootstrap's own variables at our palette ---- */
+[data-bs-theme='dark'] {
+  --bs-body-bg: var(--al-bg);
+  --bs-body-color: var(--al-text);
+  --bs-body-font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bs-secondary-color: var(--al-muted);
+  --bs-emphasis-color: var(--al-text);
+  --bs-border-color: var(--al-border);
+  --bs-link-color: var(--al-aqua);
+  --bs-link-hover-color: var(--al-text);
+  --bs-link-color-rgb: 79, 216, 224;
+  --bs-link-hover-color-rgb: 232, 241, 251;
+}
+
+body {
+  overflow-x: hidden; /* safety net: the page itself must never scroll sideways */
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+.h1,
+.h2,
+.h3,
+.h4,
+.h5 {
+  font-weight: 800;
+}
+
+.text-muted-al {
+  color: var(--al-muted);
+}
+
+/* Visible keyboard focus on everything interactive */
+:focus-visible {
+  outline: 3px solid var(--al-aqua);
+  outline-offset: 2px;
+}
+
+/* ---- Tap targets and form controls ---- */
+.btn,
+.form-control,
+.form-select {
+  min-height: var(--al-tap);
+  border-radius: var(--al-radius-sm);
+  font-weight: 700;
+}
+
+.form-control,
+.form-select {
+  /* 16px or larger stops iOS Safari zooming in when an input is focused */
+  font-size: 1rem;
+  font-weight: 400;
+  background-color: var(--al-surface-2);
+  border-color: var(--al-border);
+  color: var(--al-text);
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--al-surface-2);
+  border-color: var(--al-aqua);
+  box-shadow: var(--al-glow);
+  color: var(--al-text);
+}
+
+.form-check-input {
+  width: 1.4em;
+  height: 1.4em;
+  margin-top: 0.1em;
+  background-color: var(--al-surface-3);
+  border-color: var(--al-border);
+}
+
+.form-check-input:checked {
+  background-color: var(--al-aqua);
+  border-color: var(--al-aqua);
+}
+
+.form-switch .form-check-input {
+  width: 2.6em;
+}
+
+/* A checkbox/switch row that is tall enough to tap */
+.al-check {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: var(--al-tap);
+  padding-left: 0;
+}
+
+.al-check .form-check-input {
+  float: none;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+/* ---- Buttons ---- */
+.btn-aqua {
+  --bs-btn-bg: var(--al-aqua);
+  --bs-btn-color: var(--al-bg);
+  --bs-btn-border-color: var(--al-aqua);
+  --bs-btn-hover-bg: var(--al-text);
+  --bs-btn-hover-color: var(--al-bg);
+  --bs-btn-hover-border-color: var(--al-text);
+  --bs-btn-active-bg: var(--al-text);
+  --bs-btn-active-color: var(--al-bg);
+  --bs-btn-active-border-color: var(--al-text);
+  --bs-btn-disabled-bg: var(--al-surface-3);
+  --bs-btn-disabled-color: var(--al-muted);
+  --bs-btn-disabled-border-color: var(--al-surface-3);
+  box-shadow: var(--al-glow);
+}
+
+.btn-aqua:disabled {
+  box-shadow: none;
+}
+
+.btn-ghost {
+  --bs-btn-bg: var(--al-surface-2);
+  --bs-btn-color: var(--al-text);
+  --bs-btn-border-color: var(--al-border);
+  --bs-btn-hover-bg: var(--al-surface-3);
+  --bs-btn-hover-color: var(--al-text);
+  --bs-btn-hover-border-color: var(--al-aqua);
+  --bs-btn-active-bg: var(--al-surface-3);
+  --bs-btn-active-color: var(--al-text);
+  --bs-btn-active-border-color: var(--al-aqua);
+  --bs-btn-disabled-bg: var(--al-surface-1);
+  --bs-btn-disabled-color: var(--al-muted);
+  --bs-btn-disabled-border-color: var(--al-border);
+}
+
+/* ---- Layout ---- */
+.al-page {
+  padding-block: clamp(1rem, 3vw, 2rem) 5rem;
+}
+
+.al-title {
+  font-size: clamp(1.4rem, 1.1rem + 1.6vw, 2.1rem);
+  font-weight: 900;
+  margin-bottom: 0;
+}
+
+/* ---- Card ---- */
+.al-card {
+  background: var(--al-surface-1);
+  border: 1px solid var(--al-border);
+  border-radius: var(--al-radius);
+  padding: clamp(0.9rem, 0.6rem + 1.2vw, 1.5rem);
+}
+
+.al-card--raised {
+  background: var(--al-surface-2);
+}
+
+/* ---- Chip: small rounded label ---- */
+.al-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: var(--al-surface-3);
+  color: var(--al-text);
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.al-chip--aqua {
+  background: color-mix(in srgb, var(--al-aqua) 18%, transparent);
+  color: var(--al-aqua);
+}
+
+.al-chip--ok {
+  background: color-mix(in srgb, var(--al-ok) 18%, transparent);
+  color: var(--al-ok);
+}
+
+.al-chip--warn {
+  background: color-mix(in srgb, var(--al-warn) 18%, transparent);
+  color: var(--al-warn);
+}
+
+.al-chip--bad {
+  background: color-mix(in srgb, var(--al-bad) 18%, transparent);
+  color: var(--al-bad);
+}
+
+/* ---- Pills: a row of filter buttons where one is selected ---- */
+.al-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.al-pills button {
+  min-height: var(--al-tap);
+  padding: 0 1.1rem;
+  border: 1px solid var(--al-border);
+  border-radius: 999px;
+  background: var(--al-surface-2);
+  color: var(--al-muted);
+  font-weight: 800;
+}
+
+.al-pills button[aria-pressed='true'] {
+  background: var(--al-aqua);
+  border-color: var(--al-aqua);
+  color: var(--al-bg);
+}
+
+/* ---- Placeholder picture (used until real species photos are loaded) ---- */
+.al-ph {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--al-radius-sm);
+  background: linear-gradient(160deg, var(--al-surface-3), var(--al-surface-1));
+  font-size: clamp(2rem, 1.4rem + 3vw, 3.2rem);
+  line-height: 1;
+}
+
+.al-ph img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---- Water background shared by the tank and the login artwork ---- */
+.al-water {
+  background:
+    radial-gradient(
+      120% 80% at 50% 0%,
+      color-mix(in srgb, var(--al-aqua) 30%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(180deg, var(--al-surface-3), var(--al-bg));
+}
+
+/* ---- Pearl: the currency icon ---- */
+.al-pearl {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, #fff 0 18%, var(--al-text) 45%, var(--al-muted) 100%);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--al-text) 45%, transparent);
+  vertical-align: -0.12em;
+}
+
+/* ---- Progress bar ---- */
+.al-progress {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--al-surface-3);
+  overflow: hidden;
+}
+
+.al-progress > div {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--al-aqua);
+  box-shadow: var(--al-glow);
+  transition: width 0.3s ease;
+}
+
+/* ---- List rows inside cards ---- */
+.al-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.al-list > li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: var(--al-tap);
+  padding-block: 0.6rem;
+  border-top: 1px solid var(--al-border);
+}
+
+.al-list > li:first-child {
+  border-top: 0;
+}
+
+/* Lets long text inside a flex row shrink and wrap instead of overflowing */
+.al-grow {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* ---- Floating action button ---- */
+.al-fab {
+  position: fixed;
+  right: clamp(1rem, 4vw, 2rem);
+  bottom: clamp(1rem, 4vw, 2rem);
+  z-index: 1020;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--al-aqua);
+  color: var(--al-bg);
+  font-size: 2rem;
+  font-weight: 900;
+  line-height: 1;
+  text-decoration: none;
+  box-shadow: var(--al-glow);
+}
+
+/* ---- Toast: short confirmation message at the bottom of the screen ---- */
+.al-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1rem;
+  z-index: 1090;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 2rem);
+  padding: 0.75rem 1.1rem;
+  border: 1px solid var(--al-ok);
+  border-radius: var(--al-radius-sm);
+  background: var(--al-surface-3);
+  color: var(--al-text);
+  font-weight: 700;
+  text-align: center;
+}
+
+.al-toast--bad {
+  border-color: var(--al-bad);
+}
+
+/* ---- Profile setting: turn off animations ---- */
+.al-reduce-motion *,
+.al-reduce-motion *::before,
+.al-reduce-motion *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

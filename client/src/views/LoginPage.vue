@@ -85,94 +85,153 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <main class="container py-5">
-    <h1 class="text-center mb-4">Aqualife</h1>
+  <!--
+    Split screen: tank artwork on the left, form on the right.
+    Below the lg breakpoint the two columns stack, so the artwork becomes a banner on top.
+  -->
+  <main class="container-fluid">
+    <div class="row login">
+      <div class="col-12 col-lg-6 login__art al-water">
+        <div class="login__fish" aria-hidden="true">🐠 🐟 🐡</div>
+        <p class="login__brand mb-0">AquaLife</p>
+        <p class="login__tagline mb-0">Learn fish care by keeping a virtual aquarium.</p>
+      </div>
 
-    <div class="row justify-content-center">
-      <div class="col-12 col-md-8 col-lg-5">
-        <section class="card shadow-sm">
-          <div class="card-body p-4">
-            <h2 class="h4 mb-4">
-              {{ mode === 'signup' ? 'Sign up' : 'Log in' }}
-            </h2>
+      <div class="col-12 col-lg-6 login__form">
+        <section class="al-card login__card">
+          <h1 class="h3 mb-4">
+            {{ mode === 'signup' ? 'Sign up' : 'Log in' }}
+          </h1>
 
-            <form @submit.prevent="handleSubmit">
-              <div v-if="mode === 'signup'" class="mb-3">
-                <label for="name" class="form-label">Name</label>
-                <input
-                  id="name"
-                  v-model="name"
-                  class="form-control"
-                  type="text"
-                  autocomplete="name"
-                  required
-                />
-              </div>
+          <form @submit.prevent="handleSubmit">
+            <div v-if="mode === 'signup'" class="mb-3">
+              <label for="name" class="form-label">Name</label>
+              <input
+                id="name"
+                v-model="name"
+                class="form-control"
+                type="text"
+                autocomplete="name"
+                required
+              />
+            </div>
 
-              <div class="mb-3">
-                <label for="email" class="form-label">Email address</label>
-                <input
-                  id="email"
-                  v-model="email"
-                  class="form-control"
-                  type="email"
-                  autocomplete="email"
-                  required
-                />
-              </div>
+            <div class="mb-3">
+              <label for="email" class="form-label">Email address</label>
+              <input
+                id="email"
+                v-model="email"
+                class="form-control"
+                type="email"
+                autocomplete="email"
+                required
+              />
+            </div>
 
-              <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input
-                  id="password"
-                  v-model="password"
-                  class="form-control"
-                  type="password"
-                  :autocomplete="mode === 'signup' ? 'new-password' : 'current-password'"
-                  :aria-invalid="mode === 'signup' && password.length > 0 && !isPasswordValid"
-                  required
-                />
+            <div class="mb-3">
+              <label for="password" class="form-label">Password</label>
+              <input
+                id="password"
+                v-model="password"
+                class="form-control"
+                type="password"
+                :autocomplete="mode === 'signup' ? 'new-password' : 'current-password'"
+                :aria-invalid="mode === 'signup' && password.length > 0 && !isPasswordValid"
+                required
+              />
 
-                <p
-                  v-if="mode === 'signup' && password.length > 0 && !isPasswordValid"
-                  class="form-text text-danger"
-                  role="alert"
-                >
-                  Password must be at least 5 characters long and contain at least
-                  1 letter and at least 1 number.
-                </p>
-              </div>
-
-              <button
-                class="btn btn-primary w-100"
-                type="submit"
-                :disabled="isSubmitting || (mode === 'signup' && !isPasswordValid)"
+              <p
+                v-if="mode === 'signup' && password.length > 0 && !isPasswordValid"
+                class="form-text login__hint"
+                role="alert"
               >
-                {{ mode === 'signup' ? 'Create account' : 'Log in' }}
-              </button>
-            </form>
-            <p v-if="message"
+                Password must be at least 5 characters long and contain at least
+                1 letter and at least 1 number.
+              </p>
+            </div>
+
+            <button
+              class="btn btn-aqua w-100"
+              type="submit"
+              :disabled="isSubmitting || (mode === 'signup' && !isPasswordValid)"
+            >
+              {{ mode === 'signup' ? 'Create account' : 'Log in' }}
+            </button>
+          </form>
+
+          <p
+            v-if="message"
             class="alert mt-3 mb-0"
             :class="messageIsError ? 'alert-danger' : 'alert-success'"
             role="alert"
-            >
+          >
             {{ message }}
-            </p>
+          </p>
 
-            <button
-              class="btn btn-link w-100 mt-3"
-              type="button"
-              @click="mode = mode === 'signup' ? 'login' : 'signup'"
-            >
-              {{
-                mode === 'signup'
-                  ? 'Already an existing user? Log in'
-                  : "Don't have an account? Sign up"
-              }}
-            </button>
-          </div>
+          <button
+            class="btn btn-link w-100 mt-3"
+            type="button"
+            @click="mode = mode === 'signup' ? 'login' : 'signup'"
+          >
+            {{
+              mode === 'signup'
+                ? 'Already an existing user? Log in'
+                : "Don't have an account? Sign up"
+            }}
+          </button>
         </section>
       </div>
     </div>
   </main>
 </template>
+
+<style scoped>
+/* From lg the two halves sit side by side and fill the whole screen height */
+@media (min-width: 992px) {
+  .login {
+    min-height: 100dvh;
+  }
+}
+
+.login__art {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  /* Banner height on phones and tablets; the lg rule above stretches it on desktop */
+  min-height: clamp(150px, 30vh, 260px);
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.login__fish {
+  font-size: clamp(2rem, 1.4rem + 3vw, 3.5rem);
+}
+
+.login__brand {
+  font-size: clamp(1.8rem, 1.3rem + 2.5vw, 3rem);
+  font-weight: 900;
+  color: var(--al-aqua);
+  text-shadow: var(--al-glow);
+}
+
+.login__tagline {
+  color: var(--al-text);
+}
+
+.login__form {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 4vw, 3rem);
+}
+
+.login__card {
+  width: min(100%, 440px);
+}
+
+.login__hint {
+  color: var(--al-bad);
+}
+</style>
