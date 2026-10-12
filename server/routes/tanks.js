@@ -2,6 +2,12 @@
 
 const express = require('express')
 const Tank = require('../models/Tank-model')
+const User = require('../models/User')
+const { getSpecies } = require('../data/species')
+const { getItem } = require('../data/items')
+const { checkCompatibility } = require('../logic/compatibility')
+const { purchase } = require('../logic/shop')
+const { simulateTank } = require('../logic/simulation')
 
 const router = express.Router()
 
@@ -14,6 +20,12 @@ function requireLogin(req, res) {
   return true
 }
 
+// Helper: catch a tank up on the time that passed since it was last loaded
+// (hunger, health, water quality) and save it if anything changed
+async function simulateAndSave(tank) {
+  if (tank && simulateTank(tank)) await tank.save()
+  return tank
+}
 
 
 // GET /api/tanks -> list my tanks (Tank 1, Tank 2, ...)
@@ -22,6 +34,7 @@ router.get('/', async (req, res) => {
 
   try {
     const tanks = await Tank.getAllTanks(req.session.userId)
+    for (const tank of tanks) await simulateAndSave(tank)
     return res.status(200).json({ tanks })
   } catch (error) {
     console.error('Get tanks failed:', error)
@@ -34,12 +47,31 @@ router.get('/:id', async (req, res) => {
   if (!requireLogin(req, res)) return
 
   try {
-    const tank = await Tank.getTankById(req.params.id, req.session.userId)
+    const tank = await simulateAndSave(await Tank.getTankById(req.params.id, req.session.userId))
     if (!tank) return res.status(404).json({ message: 'Tank not found.' })
     return res.status(200).json({ tank })
   } catch (error) {
     console.error('Get tank failed:', error)
     return res.status(500).json({ message: 'Unable to load the tank. Please try again.' })
+  }
+})
+
+// GET /api/tanks/:id/compatibility/:speciesId -> would this fish suit this tank?
+router.get('/:id/compatibility/:speciesId', async (req, res) => {
+  if (!requireLogin(req, res)) return
+
+  const species = getSpecies(req.params.speciesId)
+  if (!species) return res.status(400).json({ message: 'Unknown fish species.' })
+
+  try {
+    const tank = await Tank.getTankById(req.params.id, req.session.userId)
+    if (!tank) return res.status(404).json({ message: 'Tank not found.' })
+
+    const { ok, reasons } = checkCompatibility(species, tank)
+    return res.status(200).json({ compatible: ok, reasons })
+  } catch (error) {
+    console.error('Compatibility check failed:', error)
+    return res.status(500).json({ message: 'Unable to check compatibility. Please try again.' })
   }
 })
 
@@ -106,6 +138,9 @@ router.patch('/:id/conditions', async (req, res) => {
       return res.status(400).json({ message: 'No conditions to update.' })
     }
 
+    // Catch the tank up first, so the hours before this change are simulated with the old conditions rather than the new ones.
+    await simulateAndSave(await Tank.getTankById(req.params.id, req.session.userId))
+
     // Save the changes to MongoDB. This only updates the tank if it has this id
     // AND belongs to the logged-in user (req.session.userId).
     // It returns the updated tank, or null if no matching tank was found.
@@ -129,7 +164,10 @@ router.patch('/:id/conditions', async (req, res) => {
   }
 })
 
-// POST /api/tanks/:id/fish  body: { speciesId, nickname? } -> add a fish
+// POST /api/tanks/:id/fish  body: { speciesId, nickname?, force? } -> buy a fish for this tank
+// The fish costs pearls (its shop price), the same as POST /api/game/buy.
+// If it does not suit the tank, nothing is bought and the reasons are sent back
+// with status 409. Send force: true to buy it anyway ("Add anyway" in ConflictModal.vue).
 router.post('/:id/fish', async (req, res) => {
   if (!requireLogin(req, res)) return
 
@@ -138,14 +176,24 @@ router.post('/:id/fish', async (req, res) => {
   if (typeof speciesId !== 'string' || !speciesId.trim()) {
     return res.status(400).json({ message: 'Please choose a fish species.' })
   }
-      // Later: Jaimin's compatibility check can run here before adding the fish
+
+  const item = getItem(speciesId.trim())
+  if (!item || item.category !== 'fish') return res.status(400).json({ message: 'Unknown fish species.' })
+
   try {
-    const tank = await Tank.addFish(req.params.id, req.session.userId, {
-      speciesId: speciesId.trim(),
+    const user = await User.findById(req.session.userId)
+    const tank = await Tank.getTankById(req.params.id, req.session.userId)
+    if (!user || !tank) return res.status(404).json({ message: 'Tank not found.' })
+    simulateTank(tank)
+
+    const { status, body } = await purchase({
+      user,
+      tank,
+      item,
+      force: req.body.force,
       nickname: typeof nickname === 'string' ? nickname.trim() : '',
     })
-    if (!tank) return res.status(404).json({ message: 'Tank not found.' })
-    return res.status(201).json({ message: 'Fish added.', tank })
+    return res.status(status).json(body)
   } catch (error) {
     console.error('Add fish failed:', error)
     return res.status(500).json({ message: 'Unable to add the fish. Please try again.' })

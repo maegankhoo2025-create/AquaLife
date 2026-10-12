@@ -6,6 +6,7 @@ const tankFishSchema = new mongoose.Schema({
   nickname: { type: String, default: '', trim: true, maxlength: 20 },
   health: { type: Number, default: 100, min: 0, max: 100 },
   hunger: { type: Number, default: 0, min: 0, max: 100 },
+  size: { type: Number, default: 0, min: 0 }, // cm, grows up to the species' adult size
   addedAt: { type: Date, default: Date.now },
 })
 
