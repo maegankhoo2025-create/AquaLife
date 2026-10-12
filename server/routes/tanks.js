@@ -6,6 +6,7 @@ const User = require('../models/User')
 const { getSpecies } = require('../data/species')
 const { getItem } = require('../data/items')
 const { checkCompatibility } = require('../logic/compatibility')
+const { changePearls } = require('../logic/gamification')
 const { purchase } = require('../logic/shop')
 const { simulateTank } = require('../logic/simulation')
 
@@ -202,18 +203,35 @@ router.post('/:id/fish', async (req, res) => {
 
 
 // DELETE /api/tanks/:id/fish/:fishId -> remove a fish
+// A living fish is sold back: its shop price is refunded in pearls.
+// A dead fish (health 0) is just removed, with no refund.
 router.delete('/:id/fish/:fishId', async (req, res) => {
   if (!requireLogin(req, res)) return
 
   try {
+    const user = await User.findById(req.session.userId)
     const before = await Tank.getTankById(req.params.id, req.session.userId)
-    if (!before) return res.status(404).json({ message: 'Tank not found.' })
+    if (!user || !before) return res.status(404).json({ message: 'Tank not found.' })
+
+    // Catch the tank up first, so a fish that died while the user was away is not refunded.
+    await simulateAndSave(before)
 
     const fish = before.fish.id(req.params.fishId)
     if (!fish) return res.status(404).json({ message: 'Fish not found.' })
 
+    const item = getItem(fish.speciesId)
+    const refund = fish.health > 0 && item ? item.price : 0
+
     const tank = await Tank.removeFish(req.params.id, req.session.userId, req.params.fishId)
-    return res.status(200).json({ message: 'Fish removed.', tank })
+    if (refund > 0) {
+      await changePearls(user, {
+        type: 'refund',
+        label: `${item.name} removed from ${before.name}`,
+        amount: refund,
+      })
+    }
+
+    return res.status(200).json({ message: 'Fish removed.', tank, refund, pearls: user.pearls })
   } catch (error) {
     console.error('Remove fish failed:', error)
     return res.status(500).json({ message: 'Unable to remove the fish. Please try again.' })

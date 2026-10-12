@@ -266,6 +266,42 @@ export function renameFish(tankId, fishId, nickname) {
   if (fish) fish.nickname = nickname.trim().slice(0, 20)
 }
 
+// Removes a fish from a tank for good (DELETE /api/tanks/:id/fish/:fishId).
+// The server sends back the tank without that fish. A living fish is refunded
+// its shop price; a dead one is not. Returns { ok, message, refund }.
+export async function removeFish(tankId, fishId) {
+  try {
+    const { data } = await LoginApi.delete(`/api/tanks/${tankId}/fish/${fishId}`)
+    putTank(data.tank)
+    game.pearls = data.pearls
+    // Achievements count the fish, and a refund adds to the history.
+    refreshStats().catch((error) => console.error('Unable to refresh stats:', error))
+    return { ok: true, message: data.message, refund: data.refund }
+  } catch (error) {
+    return { ok: false, message: errorMessage(error, 'Unable to remove the fish.') }
+  }
+}
+
+// Removes every dead fish (health 0) from a tank, one DELETE request per fish.
+// Returns { ok, message, removed } where removed is how many were taken out.
+export async function removeDeadFish(tankId) {
+  const dead = getTank(tankId).fish.filter((fish) => fish.health <= 0)
+  let removed = 0
+  try {
+    for (const fish of dead) {
+      const { data } = await LoginApi.delete(`/api/tanks/${tankId}/fish/${fish.id}`)
+      putTank(data.tank)
+      game.pearls = data.pearls
+      removed += 1
+    }
+    return { ok: true, message: `Removed ${removed} dead fish.`, removed }
+  } catch (error) {
+    return { ok: false, message: errorMessage(error, 'Unable to remove the dead fish.'), removed }
+  } finally {
+    refreshStats().catch((error) => console.error('Unable to refresh stats:', error))
+  }
+}
+
 // Decorate mode: remember where a decoration was dropped.
 // Not saved to the server yet: there is no route for decoration positions.
 export function moveDecoration(tankId, decorationId, x, y) {
@@ -361,6 +397,21 @@ export function getTasks() {
   return DAILY_TASKS.map((task) => ({ ...task, done: game.tasksDone.includes(task.id) }))
 }
 
+// The care animation playing right now (food dropping, sponge, thermometer).
+// TankScene.vue watches this and draws it over the matching tank.
+// "run" goes up by one each time, so doing the same task twice restarts the animation.
+const EFFECT_TIME = 2600 // ms; a little longer than the longest animation in TankScene.vue
+export const tankEffect = reactive({ tankId: null, type: null, run: 0 })
+let effectTimer
+
+function playEffect(tankId, type) {
+  tankEffect.tankId = tankId
+  tankEffect.type = type // 'feed', 'clean' or 'temp' (same as the task ids)
+  tankEffect.run += 1
+  clearTimeout(effectTimer)
+  effectTimer = setTimeout(() => (tankEffect.type = null), EFFECT_TIME)
+}
+
 // Feed, clean or adjust the temperature of a tank. The action always happens,
 // but pearls are only paid the first time each day.
 // Returns the pearls earned, or null if the request failed.
@@ -368,6 +419,7 @@ export async function doTask(taskId, tankId) {
   try {
     const { data } = await LoginApi.post(`/api/game/tasks/${taskId}`, { tankId })
     putTank(data.tank)
+    playEffect(tankId, taskId)
     game.pearls = data.pearls
     game.xp = data.xp
     refreshStats().catch((error) => console.error('Unable to refresh stats:', error))

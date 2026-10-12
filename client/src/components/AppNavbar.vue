@@ -36,6 +36,8 @@ watch(
       <!-- On small screens the pearl balance sits beside the hamburger button -->
       <div class="d-flex align-items-center gap-3 order-lg-last">
         <PearlCount :amount="game.pearls" />
+        <!-- From lg up there is no hamburger, so Log out sits here, right of the pearls -->
+        <LogoutButton class="d-none d-lg-block" />
         <button
           class="navbar-toggler"
           type="button"
@@ -56,6 +58,7 @@ watch(
             </RouterLink>
           </li>
         </ul>
+        <!-- Below lg, Log out stays inside the hamburger menu -->
         <div class="d-lg-none py-2">
           <LogoutButton />
         </div>

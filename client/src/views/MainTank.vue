@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   CONDITION_LIMITS,
@@ -10,9 +10,12 @@ import {
   getTasks,
   healthLabel,
   notify,
+  removeDeadFish,
+  removeFish,
   safeRange,
   setCondition,
 } from '../stores/game'
+import AlModal from '../components/AlModal.vue'
 import ConditionSlider from '../components/ConditionSlider.vue'
 import TankSwiper from '../components/TankSwiper.vue'
 
@@ -30,6 +33,8 @@ const fishList = computed(() =>
       name: fish.nickname || species.name,
       species: species.name,
       health: healthLabel(fish.health),
+      // Removing a living fish gives its shop price back; a dead fish gives nothing.
+      refund: fish.health > 0 ? species.price : 0,
     }
   }),
 )
@@ -38,6 +43,31 @@ async function runTask(task) {
   const earned = await doTask(task.id, tank.value.id)
   if (earned === null) return // doTask already showed the error
   notify(earned > 0 ? `${task.label}: +${earned} pearls` : `${task.label}: done`)
+}
+
+// The fish waiting for a "Remove this fish?" answer, or null when the dialog is closed.
+const fishToRemove = ref(null)
+const isRemoving = ref(false)
+
+async function confirmRemove() {
+  isRemoving.value = true
+  const result = await removeFish(tank.value.id, fishToRemove.value.id)
+  isRemoving.value = false
+  if (!result.ok) notify(result.message, true)
+  else if (result.refund > 0) notify(`${fishToRemove.value.name} was removed: +${result.refund} pearls`)
+  else notify(`${fishToRemove.value.name} was removed.`)
+  fishToRemove.value = null
+}
+
+// Fish die (health 0) after about three days with no feeding or cleaning.
+// They stay in the tank until the user clears them out.
+const deadCount = computed(() => tank.value.fish.filter((fish) => fish.health <= 0).length)
+
+async function clearDeadFish() {
+  isRemoving.value = true
+  const result = await removeDeadFish(tank.value.id)
+  isRemoving.value = false
+  notify(result.message, !result.ok)
 }
 </script>
 
@@ -89,7 +119,14 @@ async function runTask(task) {
           <p v-if="fishList.length === 0" class="text-muted-al mb-0">
             This tank is empty. Add your first fish from the shop.
           </p>
-          <ul v-else class="al-list">
+          <div v-if="deadCount > 0" class="d-flex align-items-center gap-2 flex-wrap mb-2">
+            <span class="al-chip al-chip--bad">{{ deadCount }} dead</span>
+            <span class="al-grow small text-muted-al">Fish die after about 3 days without care.</span>
+            <button class="btn btn-ghost btn-sm" type="button" :disabled="isRemoving" @click="clearDeadFish">
+              Remove dead fish
+            </button>
+          </div>
+          <ul v-if="fishList.length > 0" class="al-list">
             <li v-for="fish in fishList" :key="fish.id">
               <span aria-hidden="true">{{ fish.emoji }}</span>
               <span class="al-grow">
@@ -97,6 +134,14 @@ async function runTask(task) {
                 <span class="d-block small text-muted-al">{{ fish.species }}</span>
               </span>
               <span class="al-chip" :class="fish.health.chip">{{ fish.health.text }}</span>
+              <button
+                class="btn btn-ghost btn-sm"
+                type="button"
+                :aria-label="`Remove ${fish.name}`"
+                @click="fishToRemove = fish"
+              >
+                Remove
+              </button>
             </li>
           </ul>
         </div>
@@ -106,5 +151,24 @@ async function runTask(task) {
     <RouterLink class="al-fab" :to="{ name: 'browse' }" aria-label="Add fish or decorations">
       +
     </RouterLink>
+
+    <!-- Ask before removing: the fish is deleted from the database -->
+    <AlModal :open="fishToRemove !== null" title="Remove this fish?" @close="fishToRemove = null">
+      <template v-if="fishToRemove">
+        <p>
+          <strong>{{ fishToRemove.name }}</strong> will be removed from {{ tank.name }} for good.
+        </p>
+        <p v-if="fishToRemove.refund > 0">
+          You will get <strong>{{ fishToRemove.refund }} pearls</strong> back.
+        </p>
+        <p v-else class="text-muted-al">This fish has died, so there is no refund.</p>
+        <div class="d-grid gap-2">
+          <button class="btn btn-aqua" type="button" :disabled="isRemoving" @click="confirmRemove">
+            {{ isRemoving ? 'Removing…' : 'Remove fish' }}
+          </button>
+          <button class="btn btn-ghost" type="button" @click="fishToRemove = null">Cancel</button>
+        </div>
+      </template>
+    </AlModal>
   </main>
 </template>

@@ -7,7 +7,7 @@
 //   - the Decorate button lets the user drag decorations to a new spot
 // On the dashboard it is a preview only, so "interactive" is off.
 import { computed, ref } from 'vue'
-import { getItem, healthLabel, moveDecoration, renameFish } from '../stores/game'
+import { getItem, healthLabel, moveDecoration, renameFish, tankEffect } from '../stores/game'
 import AlModal from './AlModal.vue'
 
 const props = defineProps({
@@ -24,12 +24,15 @@ const fishInScene = computed(() =>
     const species = getItem(fish.speciesId)
     // Bigger species are drawn bigger: up to 6 cm, up to 15 cm, and larger.
     const scale = species.size <= 6 ? 1 : species.size <= 15 ? 1.3 : 1.6
+    const dead = fish.health <= 0
     return {
       fish,
       species,
+      dead,
       name: fish.nickname || species.name,
       style: {
-        top: `${20 + ((index * 29) % 46)}%`,
+        // A dead fish floats belly-up near the surface instead of swimming in its lane.
+        top: dead ? '14%' : `${20 + ((index * 29) % 46)}%`,
         '--swim-time': `${14 + ((index * 5) % 12)}s`,
         '--swim-delay': `${index * -3.7}s`,
         '--rest': `${(index * 37) % 90}%`, // where the fish sits if animations are off
@@ -43,6 +46,25 @@ const selectedFishId = ref(null)
 const selected = computed(() =>
   fishInScene.value.find((entry) => entry.fish.id === selectedFishId.value),
 )
+
+// ---- Care animations ----
+// The store sets tankEffect when a daily task is done (see doTask in game.js).
+// Only the tank the task was done on plays it.
+const effect = computed(() => (tankEffect.tankId === props.tank.id ? tankEffect.type : null))
+
+// Twelve food pellets spread across the tank, each falling at its own speed.
+const pellets = Array.from({ length: 12 }, (_, index) => ({
+  left: `${8 + ((index * 31) % 84)}%`,
+  '--fall-delay': `${(index % 4) * 0.15}s`,
+  '--fall-depth': `${55 + ((index * 17) % 30)}%`,
+}))
+
+// Sparkles left behind by the sponge, appearing from left to right.
+const sparkles = Array.from({ length: 8 }, (_, index) => ({
+  left: `${10 + index * 11}%`,
+  top: `${25 + ((index * 37) % 50)}%`,
+  '--spark-delay': `${0.25 + index * 0.2}s`,
+}))
 
 // ---- Decorations ----
 const scene = ref(null) // the tank element, used to measure its size
@@ -103,12 +125,20 @@ function onDecorationKey(event, decoration) {
     :aria-label="`${tank.name} with ${tank.fish.length} fish`"
   >
     <!-- Fish: the outer element swims across, the inner one turns round and bobs -->
-    <div v-for="entry in fishInScene" :key="entry.fish.id" class="swim" :style="entry.style">
+    <div
+      v-for="entry in fishInScene"
+      :key="entry.fish.id"
+      class="swim"
+      :class="{ 'swim--dead': entry.dead }"
+      :style="entry.style"
+    >
       <component
         :is="interactive ? 'button' : 'span'"
         class="swim__fish"
         :type="interactive ? 'button' : null"
-        :aria-label="interactive ? `${entry.name}, ${entry.species.name}` : null"
+        :aria-label="
+          interactive ? `${entry.name}, ${entry.species.name}${entry.dead ? ', dead' : ''}` : null
+        "
         :aria-hidden="interactive ? null : 'true'"
         @click="selectedFishId = entry.fish.id"
       >
@@ -137,6 +167,25 @@ function onDecorationKey(event, decoration) {
     </button>
 
     <div class="scene__floor" aria-hidden="true"></div>
+
+    <!-- Care animations. :key restarts the animation when the same task is done again. -->
+    <div v-if="effect" :key="tankEffect.run" class="fx" :class="`fx--${effect}`" aria-hidden="true">
+      <template v-if="effect === 'feed'">
+        <span v-for="(pellet, index) in pellets" :key="index" class="fx__pellet" :style="pellet"></span>
+      </template>
+
+      <template v-else-if="effect === 'clean'">
+        <span class="fx__sponge">🧽</span>
+        <span v-for="(sparkle, index) in sparkles" :key="index" class="fx__sparkle" :style="sparkle">
+          ✨
+        </span>
+      </template>
+
+      <template v-else>
+        <span class="fx__glow"></span>
+        <span class="fx__thermo">🌡️ {{ tank.conditions.temperature }}°C</span>
+      </template>
+    </div>
 
     <div class="scene__label">
       <span class="al-chip">{{ tank.name }}</span>
@@ -294,6 +343,155 @@ function onDecorationKey(event, decoration) {
   }
   to {
     transform: translateY(5px);
+  }
+}
+
+/* ---- Dead fish: grey, belly-up and still, floating near the surface ---- */
+.swim--dead {
+  animation: none;
+}
+
+.swim--dead .swim__fish {
+  animation: none;
+  transform: scaleY(-1);
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+/* ---- Care animations (feed, clean, temperature) ---- */
+.fx {
+  position: absolute;
+  inset: 0;
+  z-index: 100; /* above fish and decorations, below the labels and buttons */
+  pointer-events: none; /* never blocks taps on the fish underneath */
+}
+
+/* Feed: pellets drop from the surface, slow down in the water and fade as they are eaten */
+.fx__pellet {
+  position: absolute;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d9a066;
+  opacity: 0;
+  animation: fall 2.2s ease-out var(--fall-delay) forwards;
+}
+
+@keyframes fall {
+  0% {
+    top: 0;
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    top: var(--fall-depth);
+    opacity: 0;
+  }
+}
+
+/* Clean: a sponge wipes across the glass and leaves sparkles behind it */
+.fx__sponge {
+  position: absolute;
+  top: 45%;
+  left: 0;
+  font-size: clamp(2rem, 1.4rem + 3vw, 3.4rem);
+  line-height: 1;
+  opacity: 0;
+  animation: wipe 2.2s ease-in-out forwards;
+}
+
+@keyframes wipe {
+  0% {
+    left: -10%;
+    top: 30%;
+    opacity: 1;
+  }
+  25% {
+    top: 60%;
+  }
+  50% {
+    top: 30%;
+  }
+  75% {
+    top: 60%;
+  }
+  100% {
+    left: 100%;
+    top: 40%;
+    opacity: 1;
+  }
+}
+
+.fx__sparkle {
+  position: absolute;
+  font-size: 1.3rem;
+  opacity: 0;
+  animation: sparkle 0.9s ease-out var(--spark-delay) forwards;
+}
+
+@keyframes sparkle {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* Temperature: the water glows for a moment and the new temperature rises up */
+.fx__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 60%, var(--al-warn), transparent 70%);
+  opacity: 0;
+  animation: glow 2.2s ease-in-out forwards;
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.3;
+  }
+}
+
+.fx__thermo {
+  position: absolute;
+  left: 50%;
+  top: 55%;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: var(--al-surface-2);
+  border: 1px solid var(--al-border);
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  animation: rise 2.2s ease-out forwards;
+}
+
+@keyframes rise {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+  20%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -40px);
   }
 }
 

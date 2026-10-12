@@ -7,7 +7,15 @@ const filters = [
   { value: 'all', label: 'All' },
   { value: 'purchase', label: 'Purchases' },
   { value: 'reward', label: 'Rewards' },
+  { value: 'refund', label: 'Refunds' },
 ]
+
+// How each kind of entry is labelled and coloured.
+const TYPES = {
+  purchase: { label: 'Purchase', chip: 'al-chip--aqua' },
+  reward: { label: 'Reward', chip: 'al-chip--ok' },
+  refund: { label: 'Refund', chip: 'al-chip--warn' },
+}
 const filter = ref('all')
 
 const entries = computed(() =>
@@ -72,8 +80,8 @@ const entries = computed(() =>
               <td class="text-nowrap">{{ formatDate(entry.date) }}</td>
               <td>{{ entry.label }}</td>
               <td>
-                <span class="al-chip" :class="entry.type === 'reward' ? 'al-chip--ok' : 'al-chip--aqua'">
-                  {{ entry.type === 'reward' ? 'Reward' : 'Purchase' }}
+                <span class="al-chip" :class="TYPES[entry.type].chip">
+                  {{ TYPES[entry.type].label }}
                 </span>
               </td>
               <td class="text-end" :class="entry.amount > 0 ? 'text-earned' : 'text-spent'">
@@ -90,7 +98,7 @@ const entries = computed(() =>
           <span class="al-grow">
             {{ entry.label }}
             <span class="d-block small text-muted-al">
-              {{ formatDate(entry.date) }} · {{ entry.type === 'reward' ? 'Reward' : 'Purchase' }}
+              {{ formatDate(entry.date) }} · {{ TYPES[entry.type].label }}
             </span>
           </span>
           <span :class="entry.amount > 0 ? 'text-earned' : 'text-spent'">
