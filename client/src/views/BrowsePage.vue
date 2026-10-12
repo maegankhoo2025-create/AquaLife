@@ -1,11 +1,12 @@
 <script setup>
-import SpeciesExplorer from '../components/SpeciesExplorer.vue'
-import { computed, ref } from 'vue'
+
+import { computed, ref, onMounted } from 'vue'
 import {
   buyItem,
   checkCompatibility,
   currentTank,
   game,
+  loadSpeciesInfo,
   getItems,
   notify,
 } from '../stores/game'
@@ -15,6 +16,7 @@ import ItemModal from '../components/ItemModal.vue'
 
 const items = getItems()
 const tank = currentTank
+onMounted(loadSpeciesInfo)
 
 // ---- Filters ----
 const categories = [
@@ -218,7 +220,7 @@ async function buy(item, tankId, quantity, force = false) {
       @close="pendingConflict = null"
       @add="onConflictChoice"
     />
-    <SpeciesExplorer />
+ 
   </main>
 </template>
 
