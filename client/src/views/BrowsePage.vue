@@ -1,4 +1,5 @@
 <script setup>
+import SpeciesExplorer from '../components/SpeciesExplorer.vue'
 import { computed, ref } from 'vue'
 import {
   buyItem,
@@ -217,6 +218,7 @@ async function buy(item, tankId, quantity, force = false) {
       @close="pendingConflict = null"
       @add="onConflictChoice"
     />
+    <SpeciesExplorer />
   </main>
 </template>
 
