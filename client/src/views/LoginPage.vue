@@ -9,7 +9,7 @@ const message = ref('')
 const messageIsError = ref(false)
 const isSubmitting = ref(false)
 
-const mode = ref('signup')
+const mode = ref('login')
 const name = ref('')
 const email = ref('')
 const password = ref('')
