@@ -2,9 +2,9 @@
 
 const express = require('express')
 const Tank = require('../models/Tank-model')
-const User = require('../models/User')
+const User = require('../models/User-model')
 const { getSpecies } = require('../data/species')
-const Product = require('../models/Product')
+const Product = require('../models/Product-model')
 const { checkCompatibility } = require('../logic/compatibility')
 const { changePearls } = require('../logic/gamification')
 const { purchase } = require('../logic/shop')

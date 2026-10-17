@@ -2,10 +2,10 @@
 
 const express = require('express')
 const mongoose = require('mongoose')
-const User = require('../models/User')
+const User = require('../models/User-model')
 const Tank = require('../models/Tank-model')
-const Transaction = require('../models/Transaction')
-const Product = require('../models/Product')
+const Transaction = require('../models/Transaction-model')
+const Product = require('../models/Product-model')
 const { safeRange } = require('../logic/compatibility')
 const { purchase } = require('../logic/shop')
 const { simulateTank } = require('../logic/simulation')

@@ -2,7 +2,7 @@
 // Reads the products collection (the 18 items you seeded) and sends them to the frontend.
 
 const express = require('express')
-const Product = require('../models/Product')
+const Product = require('../models/Product-model')
 
 const router = express.Router()
 

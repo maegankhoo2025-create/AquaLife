@@ -10,12 +10,12 @@ const MongoStore = require('connect-mongo').default;
 
 
 
-const tankRoutes = require('./routes/tanks');
-const authRoutes = require('./routes/auth');
-const gameRoutes = require('./routes/game');
-const quizRoutes = require('./routes/quiz');
-const speciesRoutes = require('./routes/species');
-const productRoutes = require('./routes/products');
+const tankRoutes = require('./routes/tanks-routes');
+const authRoutes = require('./routes/auth-routes');
+const gameRoutes = require('./routes/game-routes');
+const quizRoutes = require('./routes/quiz-routes');
+const speciesRoutes = require('./routes/species-routes');
+const productRoutes = require('./routes/products-routes');
 
 const app = express();
 const PORT = process.env.PORT || 8000;

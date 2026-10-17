@@ -1,7 +1,7 @@
 // Pearls, XP, levels, daily tasks, streaks and achievements.
 // Server copy of the rules in client/src/stores/game.js.
 
-const Transaction = require('../models/Transaction')
+const Transaction = require('../models/Transaction-model')
 const { getSpecies } = require('../data/species')
 
 const XP_PER_LEVEL = 200

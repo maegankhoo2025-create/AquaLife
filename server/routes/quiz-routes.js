@@ -4,7 +4,7 @@
 // server does the marking, so nobody can earn pearls by just claiming a perfect score.
 
 const express = require('express')
-const User = require('../models/User')
+const User = require('../models/User-model')
 const { QUIZ_LENGTH, getQuestionPool, questionsForDay } = require('../data/questions')
 const { dayKey, currentStreak, changePearls } = require('../logic/gamification')
 

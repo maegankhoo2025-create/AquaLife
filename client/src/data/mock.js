@@ -242,7 +242,7 @@ export const ITEMS = [
   },
 ]
 
-// The tank shape follows the draft schema in server/models/Tank.js
+// The tank shape follows the draft schema in server/models/Tank-model.js
 // (conditions, fish with health and hunger). Each decoration also remembers
 // where the user placed it: x and y are percentages of the tank's width and
 // height, so the layout looks the same on a phone and on a desktop.

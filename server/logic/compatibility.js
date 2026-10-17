@@ -3,7 +3,7 @@
 
 const { getSpecies } = require('../data/species')
 
-// Same limits as the condition sliders in server/models/Tank.js
+// Same limits as the condition sliders in server/models/Tank-model.js
 const CONDITION_LIMITS = {
   temperature: { min: 15, max: 35 },
   ph: { min: 5, max: 9 },

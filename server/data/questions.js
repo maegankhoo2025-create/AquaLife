@@ -8,7 +8,7 @@
 // the last questions that were fetched keep being used.
 
 const { SPECIES } = require('./species')
-const { getSpecies: lookupSpecies } = require('../routes/species')
+const { getSpecies: lookupSpecies } = require('../routes/species-routes')
 
 const QUIZ_LENGTH = 5
 const CACHE_HOURS = 24
