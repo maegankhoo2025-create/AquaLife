@@ -5,7 +5,7 @@ const mongoose = require('mongoose')
 const User = require('../models/User')
 const Tank = require('../models/Tank-model')
 const Transaction = require('../models/Transaction')
-const { getItem } = require('../data/items')
+const Product = require('../models/Product')
 const { safeRange } = require('../logic/compatibility')
 const { purchase } = require('../logic/shop')
 const { simulateTank } = require('../logic/simulation')
@@ -120,7 +120,8 @@ router.post('/tasks/:taskId', async (req, res) => {
 router.post('/buy', async (req, res) => {
   if (!requireLogin(req, res)) return
 
-  const item = getItem(req.body.itemId)
+  // Look up the shop item in MongoDB by its slug, e.g. 'neon-tetra'
+  const item = await Product.getProductBySlug(req.body.itemId)
   if (!item) return res.status(400).json({ message: 'Unknown shop item.' })
 
   const quantity = req.body.quantity === undefined ? 1 : Number(req.body.quantity)

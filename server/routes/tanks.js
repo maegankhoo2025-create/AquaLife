@@ -4,7 +4,7 @@ const express = require('express')
 const Tank = require('../models/Tank-model')
 const User = require('../models/User')
 const { getSpecies } = require('../data/species')
-const { getItem } = require('../data/items')
+const Product = require('../models/Product')
 const { checkCompatibility } = require('../logic/compatibility')
 const { changePearls } = require('../logic/gamification')
 const { purchase } = require('../logic/shop')
@@ -178,7 +178,8 @@ router.post('/:id/fish', async (req, res) => {
     return res.status(400).json({ message: 'Please choose a fish species.' })
   }
 
-  const item = getItem(speciesId.trim())
+  // Same slug as the shop, e.g. 'guppy'
+  const item = await Product.getProductBySlug(speciesId.trim())
   if (!item || item.category !== 'fish') return res.status(400).json({ message: 'Unknown fish species.' })
 
   try {
@@ -219,9 +220,10 @@ router.delete('/:id/fish/:fishId', async (req, res) => {
     const fish = before.fish.id(req.params.fishId)
     if (!fish) return res.status(404).json({ message: 'Fish not found.' })
 
-    const item = getItem(fish.speciesId)
+    // Price comes from MongoDB so a Compass price change is refunded correctly
+    const item = await Product.getProductBySlug(fish.speciesId)
     const refund = fish.health > 0 && item ? item.price : 0
-
+    
     const tank = await Tank.removeFish(req.params.id, req.session.userId, req.params.fishId)
     if (refund > 0) {
       await changePearls(user, {

@@ -6,14 +6,10 @@
 
 import { computed, reactive, watch } from 'vue'
 import LoginApi from '../LoginApi'
-import { DAILY_TASKS, ITEMS } from '../data/mock'
+import { DAILY_TASKS } from '../data/mock'
 
-const shopItems = reactive(
-  ITEMS.map(item => ({
-    ...item,
-    photos: [...(item.photos ?? [])],
-  }))
-)
+// Starts empty. loadShop() fills this from GET /api/products after login.
+const shopItems = reactive([])
 
 const STORAGE_KEY = 'aqualife-prefs-v1'
 const XP_PER_LEVEL = 200
@@ -146,6 +142,7 @@ export async function loadGame() {
     LoginApi.get('/api/game/me'),
     LoginApi.get('/api/tanks'),
     LoginApi.get('/api/game/history'),
+    loadShop(),
   ])
 
   let tankList = tanks.data.tanks
@@ -183,6 +180,60 @@ export const xpPercent = computed(() => (xpInLevel.value / XP_PER_LEVEL) * 100)
 export const xpPerLevel = XP_PER_LEVEL
 
 // ---- Shop items ----
+
+//code to get shop item data from mongodb
+// Turn one Mongo product into the shape the shop pages already use.
+// photos in Mongo are objects { url, attribution, ... }.
+// ItemCard / ItemModal expect an array of URL strings.
+function forShop(product) {
+  const photoUrls = []
+
+  if (product.photos) {
+    for (let i = 0; i < product.photos.length; i++) {
+      const photo = product.photos[i]
+      if (typeof photo === 'string') {
+        photoUrls.push(photo)
+      } else if (photo && photo.url) {
+        photoUrls.push(photo.url)
+      }
+    }
+  }
+
+  return {
+    id: product.id, // slug like 'neon-tetra', not Mongo's _id
+    category: product.category,
+    name: product.name,
+    sci: product.sci,
+    emoji: product.emoji,
+    price: product.price,
+    temperament: product.temperament,
+    care: product.care,
+    temp: product.temp,
+    ph: product.ph,
+    size: product.size,
+    blurb: product.blurb,
+    photos: photoUrls,
+  }
+}
+
+// Ask the server for every shop item and put them in shopItems.
+export async function loadShop() {
+  try {
+    const response = await LoginApi.get('/api/products')
+    const products = response.data.products || []
+
+    // Empty the old list, then add each product.
+    shopItems.splice(0, shopItems.length)
+
+    for (let i = 0; i < products.length; i++) {
+      shopItems.push(forShop(products[i]))
+    }
+  } catch (error) {
+    console.error('Unable to load the shop:', error)
+  }
+}
+//end of code to get shop data from MongoDB
+
 export function getItems() {
   return shopItems
 }
