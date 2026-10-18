@@ -1,7 +1,9 @@
 <script setup>
 // A slider for one tank condition (temperature, pH or water quality).
 // The green band behind the slider shows the range that is safe for the fish.
-import { computed } from 'vue'
+// Tapping the title opens real-life tips for keeping this condition right.
+import { computed, ref } from 'vue'
+import AlModal from './AlModal.vue'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -13,6 +15,8 @@ const props = defineProps({
   unit: { type: String, default: '' },
   // [low, high], or null when the fish in the tank have no range in common
   safe: { type: Array, default: null },
+  // Real-life advice from data/careTips.js: { why, raise, lower, check, caution }
+  tips: { type: Object, default: null },
 })
 defineEmits(['update:modelValue'])
 
@@ -33,14 +37,37 @@ const status = computed(() => {
   if (props.modelValue > props.safe[1]) return { text: 'Too high', chip: 'al-chip--bad' }
   return { text: 'In range', chip: 'al-chip--ok' }
 })
+
+// Whole-step sliders (temperature, water quality) show whole numbers; pH keeps two decimals so the slow driftwood drop (e.g. 6.92) is visible. Trailing zeros are dropped.
+const displayValue = computed(() => Number(props.modelValue.toFixed(props.step < 1 ? 2 : 0)))
+
+const showTips = ref(false)
+const outOfRange = computed(() => status.value.text === 'Too low' || status.value.text === 'Too high')
+
+// Only the advice the player needs right now: how to lower it when too high, how to raise it when too low, and both when it is in range.
+const tipSections = computed(() => {
+  if (!props.tips) return []
+  if (status.value.text === 'Too high') return [props.tips.lower]
+  if (status.value.text === 'Too low') return [props.tips.raise]
+  return [props.tips.raise, props.tips.lower]
+})
 </script>
 
 <template>
   <div class="condition">
     <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-      <label :for="id" class="fw-bold">{{ label }}</label>
+      <button
+        v-if="tips"
+        class="btn btn-link condition__title fw-bold p-0"
+        type="button"
+        :aria-label="`${label}: tips for a real tank`"
+        @click="showTips = true"
+      >
+        {{ label }} <span class="condition__info" aria-hidden="true">ⓘ</span>
+      </button>
+      <span v-else class="fw-bold">{{ label }}</span>
       <span class="d-flex align-items-center gap-2">
-        <span class="fw-bold">{{ modelValue }}{{ unit }}</span>
+        <span class="fw-bold">{{ displayValue }}{{ unit }}</span>
         <span class="al-chip" :class="status.chip">{{ status.text }}</span>
       </span>
     </div>
@@ -51,6 +78,7 @@ const status = computed(() => {
       </div>
       <input
         :id="id"
+        :aria-label="label"
         type="range"
         :min="min"
         :max="max"
@@ -64,12 +92,58 @@ const status = computed(() => {
       <template v-if="safe">Safe range: {{ safe[0] }}–{{ safe[1] }}{{ unit }}</template>
       <template v-else>Your fish need different ranges. Consider moving some to another tank.</template>
     </p>
+
+    <AlModal
+      v-if="tips"
+      :open="showTips"
+      :title="`${label} in a real tank`"
+      @close="showTips = false"
+    >
+      <p class="d-flex align-items-center flex-wrap gap-2">
+        <span class="al-chip" :class="status.chip">{{ status.text }}</span>
+        <span>
+          Now {{ displayValue }}{{ unit }}<template v-if="safe">
+            · safe for your fish: {{ safe[0] }}–{{ safe[1] }}{{ unit }}</template
+          >
+        </span>
+      </p>
+      <p>{{ tips.why }}</p>
+
+      <section v-for="(section, index) in tipSections" :key="section.title" class="mb-3">
+        <h3 class="h6 fw-bold d-flex align-items-center flex-wrap gap-2">
+          {{ section.title }}
+          <span v-if="index === 0 && outOfRange" class="al-chip al-chip--warn">Do this now</span>
+        </h3>
+        <ul class="mb-0">
+          <li v-for="step in section.steps" :key="step">{{ step }}</li>
+        </ul>
+      </section>
+
+      <h3 class="h6 fw-bold">How to check it</h3>
+      <p>{{ tips.check }}</p>
+      <p class="small text-muted-al mb-0"><strong>Go slowly:</strong> {{ tips.caution }}</p>
+    </AlModal>
   </div>
 </template>
 
 <style scoped>
 .condition {
   --thumb: 24px;
+}
+
+.condition__title {
+  color: inherit;
+  text-decoration: none;
+}
+
+.condition__title:hover .condition__info,
+.condition__title:focus-visible .condition__info {
+  color: var(--al-aqua);
+}
+
+.condition__info {
+  color: var(--al-muted);
+  font-weight: 400;
 }
 
 .condition__slider {

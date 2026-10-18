@@ -17,6 +17,8 @@ const ITEMS = [
   { id: 'amazon-sword', category: 'plant', name: 'Amazon Sword', price: 22 },
   { id: 'java-moss', category: 'plant', name: 'Java Moss', price: 12 },
   { id: 'driftwood', category: 'decor', name: 'Driftwood', price: 35 },
+  { id: 'almond-leaves', category: 'decor', name: 'Indian Almond Leaves', price: 10 },
+  { id: 'crushed-coral', category: 'decor', name: 'Crushed Coral', price: 20 },
   { id: 'rock-cave', category: 'decor', name: 'Rock Cave', price: 40 },
   { id: 'castle', category: 'decor', name: 'Sunken Castle', price: 80 },
   { id: 'treasure-chest', category: 'decor', name: 'Treasure Chest', price: 60 },
