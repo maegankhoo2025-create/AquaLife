@@ -3,6 +3,7 @@
 // The server does not run a timer. Instead, whenever a tank is loaded, simulateTank() catches it up from tank.lastSimulatedAt to now, one hour at a time.
 
 const { getSpecies } = require('../data/species')
+const { getItem } = require('../data/items')
 
 const HOUR = 60 * 60 * 1000
 const MAX_HOURS = 7 * 24 // a tank left alone for months only simulates its last week
@@ -12,6 +13,23 @@ const HUNGER_PER_HOUR = 2 // unfed fish go from full (0) to starving (100) in ab
 const DIRT_PER_HOUR = 0.5 // water quality lost per hour in an empty tank
 const DIRT_PER_FISH_PER_HOUR = 0.1 // plus this much for every fish in it
 const HEALTH_RECOVERY_PER_HOUR = 2
+
+// Decorations that change pH over time, as in a real tank. Each piece moves pH by
+// `perHour` every hour (up to PH_ITEM_MAX_PIECES of each count) and stops at `limit`.
+// The slider on the tank page still sets pH instantly.
+//   driftwood, almond leaves: release tannins that lower pH (leaves work a little faster)
+//   crushed coral: slowly dissolves and raises pH
+const PH_ITEMS = {
+  driftwood: { perHour: -0.02, limit: 6.5 }, // about 0.5 a day for one piece
+  'almond-leaves': { perHour: -0.03, limit: 6.5 },
+  'crushed-coral': { perHour: 0.02, limit: 8.0 },
+}
+const PH_ITEM_MAX_PIECES = 3
+
+// Live plants absorb fish waste: each plant makes the water get dirty 10% more slowly,
+// up to 4 plants (40%). Plants are the items marked 'plant' in data/items.js.
+const PLANT_CLEANING = 0.1
+const PLANT_MAX_COUNTED = 4
 
 // Growth: a well-cared-for fish goes from 0 cm to its adult size (species.size) in about a week.
 // Hours where it is unhealthy or hungry do not count, so neglect stunts it.
@@ -62,7 +80,20 @@ function simulateTank(tank, now = new Date()) {
 
   const hours = Math.min(hoursPassed, MAX_HOURS)
   const conditions = tank.conditions
-  const dirtPerHour = DIRT_PER_HOUR + DIRT_PER_FISH_PER_HOUR * tank.fish.length
+  const decorations = tank.decorations || []
+  const plants = Math.min(
+    PLANT_MAX_COUNTED,
+    decorations.filter((decoration) => getItem(decoration.itemId)?.category === 'plant').length,
+  )
+  const dirtPerHour =
+    (DIRT_PER_HOUR + DIRT_PER_FISH_PER_HOUR * tank.fish.length) * (1 - PLANT_CLEANING * plants)
+  // [{ perHour, limit, pieces }] for each pH-changing item in this tank
+  const phEffects = Object.entries(PH_ITEMS)
+    .map(([itemId, effect]) => ({
+      ...effect,
+      pieces: Math.min(PH_ITEM_MAX_PIECES, decorations.filter((d) => d.itemId === itemId).length),
+    }))
+    .filter((effect) => effect.pieces > 0)
 
   for (let i = 0; i < hours; i++) {
     for (const fish of tank.fish) {
@@ -81,9 +112,19 @@ function simulateTank(tank, now = new Date()) {
       }
     }
     conditions.waterQuality = clamp(conditions.waterQuality - dirtPerHour, 0, 100)
+
+    for (const { perHour, limit, pieces } of phEffects) {
+      const change = perHour * pieces
+      if (change < 0 && conditions.ph > limit) conditions.ph = Math.max(limit, conditions.ph + change)
+      if (change > 0 && conditions.ph < limit) conditions.ph = Math.min(limit, conditions.ph + change)
+    }
   }
 
-  conditions.waterQuality = Math.round(conditions.waterQuality)
+  // Two decimals keep each hourly drop exact (plants make it e.g. 0.54), so a page that
+  // refreshes every hour dirties the water at the same rate as one long catch-up.
+  conditions.waterQuality = Math.round(conditions.waterQuality * 100) / 100
+  // Two decimals keeps every 0.02 step exact (no 6.9799999) without losing small hourly drops.
+  conditions.ph = Math.round(conditions.ph * 100) / 100
 
   // Only move the clock forward by whole hours, so the leftover minutes count next time.
   // After a very long break, jump straight to now.

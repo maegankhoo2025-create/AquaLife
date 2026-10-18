@@ -333,6 +333,21 @@ export async function removeFish(tankId, fishId) {
   }
 }
 
+// Removes a plant or decoration from a tank (DELETE /api/tanks/:id/decorations/:decorationId).
+// Its shop price is refunded. Returns { ok, message, refund }.
+export async function removeDecoration(tankId, decorationId) {
+  try {
+    const { data } = await LoginApi.delete(`/api/tanks/${tankId}/decorations/${decorationId}`)
+    putTank(data.tank)
+    game.pearls = data.pearls
+    // A refund adds to the history.
+    refreshStats().catch((error) => console.error('Unable to refresh stats:', error))
+    return { ok: true, message: data.message, refund: data.refund }
+  } catch (error) {
+    return { ok: false, message: errorMessage(error, 'Unable to remove the decoration.') }
+  }
+}
+
 // Removes every dead fish (health 0) from a tank, one DELETE request per fish.
 // Returns { ok, message, removed } where removed is how many were taken out.
 export async function removeDeadFish(tankId) {

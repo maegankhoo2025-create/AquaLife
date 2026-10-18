@@ -11,12 +11,14 @@ import {
   healthLabel,
   notify,
   removeDeadFish,
+  removeDecoration,
   removeFish,
   safeRange,
   setCondition,
 } from '../stores/game'
 import AlModal from '../components/AlModal.vue'
 import ConditionSlider from '../components/ConditionSlider.vue'
+import { CARE_TIPS } from '../data/careTips'
 import TankSwiper from '../components/TankSwiper.vue'
 
 const tank = currentTank
@@ -57,6 +59,41 @@ async function confirmRemove() {
   else if (result.refund > 0) notify(`${fishToRemove.value.name} was removed: +${result.refund} pearls`)
   else notify(`${fishToRemove.value.name} was removed.`)
   fishToRemove.value = null
+}
+
+// What each item does to the water over time (see server/logic/simulation.js).
+const DECOR_EFFECTS = {
+  driftwood: 'Lowers pH slowly',
+  'almond-leaves': 'Lowers pH',
+  'crushed-coral': 'Raises pH',
+}
+
+// Each plant or decoration in the tank, for the decorations list.
+const decorList = computed(() =>
+  tank.value.decorations.map((decoration) => {
+    const item = getItem(decoration.itemId)
+    return {
+      id: decoration.id,
+      emoji: item?.emoji ?? '🪨',
+      name: item?.name ?? decoration.itemId,
+      effect:
+        DECOR_EFFECTS[decoration.itemId] ?? (item?.category === 'plant' ? 'Keeps water cleaner' : ''),
+      refund: item?.price ?? 0,
+    }
+  }),
+)
+
+// The decoration waiting for a "Remove this?" answer, or null when the dialog is closed.
+const decorToRemove = ref(null)
+
+async function confirmRemoveDecoration() {
+  isRemoving.value = true
+  const result = await removeDecoration(tank.value.id, decorToRemove.value.id)
+  isRemoving.value = false
+  if (!result.ok) notify(result.message, true)
+  else if (result.refund > 0) notify(`${decorToRemove.value.name} was removed: +${result.refund} pearls`)
+  else notify(`${decorToRemove.value.name} was removed.`)
+  decorToRemove.value = null
 }
 
 // Fish die (health 0) after about three days with no feeding or cleaning.
@@ -108,6 +145,7 @@ async function clearDeadFish() {
               :step="limits.step"
               :unit="limits.unit"
               :safe="safe[key]"
+              :tips="CARE_TIPS[key]"
               :model-value="tank.conditions[key]"
               @update:model-value="setCondition(tank.id, key, $event)"
             />
@@ -145,6 +183,31 @@ async function clearDeadFish() {
             </li>
           </ul>
         </div>
+
+        <div class="al-card mt-3">
+          <h2 class="h5">Plants and decorations ({{ decorList.length }})</h2>
+          <p v-if="decorList.length === 0" class="text-muted-al mb-0">
+            No plants or decorations yet. Some change the water: driftwood lowers pH and plants keep it
+            cleaner.
+          </p>
+          <ul v-else class="al-list">
+            <li v-for="decor in decorList" :key="decor.id">
+              <span aria-hidden="true">{{ decor.emoji }}</span>
+              <span class="al-grow">
+                {{ decor.name }}
+                <span v-if="decor.effect" class="d-block small text-muted-al">{{ decor.effect }}</span>
+              </span>
+              <button
+                class="btn btn-ghost btn-sm"
+                type="button"
+                :aria-label="`Remove ${decor.name}`"
+                @click="decorToRemove = decor"
+              >
+                Remove
+              </button>
+            </li>
+          </ul>
+        </div>
       </aside>
     </div>
 
@@ -167,6 +230,24 @@ async function clearDeadFish() {
             {{ isRemoving ? 'Removing…' : 'Remove fish' }}
           </button>
           <button class="btn btn-ghost" type="button" @click="fishToRemove = null">Cancel</button>
+        </div>
+      </template>
+    </AlModal>
+
+    <AlModal :open="decorToRemove !== null" title="Remove this item?" @close="decorToRemove = null">
+      <template v-if="decorToRemove">
+        <p>
+          <strong>{{ decorToRemove.name }}</strong> will be removed from {{ tank.name }}.
+          <template v-if="decorToRemove.effect"> Its effect ({{ decorToRemove.effect.toLowerCase() }}) stops.</template>
+        </p>
+        <p v-if="decorToRemove.refund > 0">
+          You will get <strong>{{ decorToRemove.refund }} pearls</strong> back.
+        </p>
+        <div class="d-grid gap-2">
+          <button class="btn btn-aqua" type="button" :disabled="isRemoving" @click="confirmRemoveDecoration">
+            {{ isRemoving ? 'Removing…' : 'Remove item' }}
+          </button>
+          <button class="btn btn-ghost" type="button" @click="decorToRemove = null">Cancel</button>
         </div>
       </template>
     </AlModal>

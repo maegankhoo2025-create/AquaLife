@@ -240,6 +240,47 @@ router.delete('/:id/fish/:fishId', async (req, res) => {
   }
 })
 
+// DELETE /api/tanks/:id/decorations/:decorationId -> remove a plant or decoration
+// It is sold back: its shop price is refunded in pearls, the same as a living fish.
+router.delete('/:id/decorations/:decorationId', async (req, res) => {
+  if (!requireLogin(req, res)) return
+
+  try {
+    const user = await User.findById(req.session.userId)
+    const tank = await Tank.getTankById(req.params.id, req.session.userId)
+    if (!user || !tank) return res.status(404).json({ message: 'Tank not found.' })
+
+    // Catch the tank up first, so the item's effect (e.g. coral raising pH) counts until now.
+    simulateTank(tank)
+
+    const decoration = tank.decorations.id(req.params.decorationId)
+    if (!decoration) {
+      await tank.save()
+      return res.status(404).json({ message: 'Decoration not found.' })
+    }
+
+    // Price comes from MongoDB so a Compass price change is refunded correctly
+    const item = await Product.getProductBySlug(decoration.itemId)
+    const refund = item ? item.price : 0
+    const name = item ? item.name : 'Decoration'
+
+    decoration.deleteOne()
+    await tank.save()
+    if (refund > 0) {
+      await changePearls(user, {
+        type: 'refund',
+        label: `${name} removed from ${tank.name}`,
+        amount: refund,
+      })
+    }
+
+    return res.status(200).json({ message: `${name} removed.`, tank, refund, pearls: user.pearls })
+  } catch (error) {
+    console.error('Remove decoration failed:', error)
+    return res.status(500).json({ message: 'Unable to remove the decoration. Please try again.' })
+  }
+})
+
 // DELETE /api/tanks/:id -> delete a tank
 router.delete('/:id', async (req, res) => {
   if (!requireLogin(req, res)) return
