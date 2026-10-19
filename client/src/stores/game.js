@@ -271,8 +271,10 @@ export function getTank(id) {
 }
 
 // The different species living in a tank (each species listed once).
+// Dead fish (health 0) are left out: they cannot clash with new fish.
 export function tankSpecies(tank) {
-  const ids = [...new Set(tank.fish.map((fish) => fish.speciesId))]
+  const living = tank.fish.filter((fish) => fish.health > 0)
+  const ids = [...new Set(living.map((fish) => fish.speciesId))]
   return ids.map(getItem).filter(Boolean)
 }
 

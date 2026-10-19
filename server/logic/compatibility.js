@@ -11,8 +11,10 @@ const CONDITION_LIMITS = {
 const SAFE_WATER_QUALITY = [70, 100]
 
 // The different species living in a tank (each species listed once).
+// Dead fish (health 0) are left out: they cannot clash with new fish.
 function tankSpecies(tank) {
-  const ids = [...new Set(tank.fish.map((fish) => fish.speciesId))]
+  const living = tank.fish.filter((fish) => fish.health > 0)
+  const ids = [...new Set(living.map((fish) => fish.speciesId))]
   return ids.map(getSpecies).filter(Boolean)
 }
 
