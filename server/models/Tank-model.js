@@ -16,6 +16,8 @@ const decorationSchema = new mongoose.Schema({
   itemId: { type: String, required: true, trim: true },
   x: { type: Number, default: 50, min: 0, max: 100 },
   y: { type: Number, default: 85, min: 0, max: 100 },
+  addedAt: { type: Date },
+  installedAt: { type: Date },
 })
 
 const tankSchema = new mongoose.Schema(
@@ -43,10 +45,24 @@ const tankSchema = new mongoose.Schema(
     },
     fish: [tankFishSchema],
     decorations: [decorationSchema],
+    maintenance: {
+      waterChange: {
+        startedAt: Date,
+        endsAt: Date,
+        amount: Number,
+        delivered: { type: Number, default: 0 },
+      },
+    },
     lastSimulatedAt: { type: Date, default: Date.now },
   },
-  { timestamps: true },
+  { timestamps: true, optimisticConcurrency: true, toJSON: { virtuals: true } },
 )
+
+tankSchema.index({ owner: 1, createdAt: 1 })
+
+tankSchema.virtual('progression').get(function () {
+  return require('../logic/simulation').tankProgression(this)
+})
 
 
 // All tanks for one user, oldest first

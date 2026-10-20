@@ -1,4 +1,5 @@
 const mongoose = require('mongoose')
+const { productEffect } = require('../data/equipment')
 
 const photoSchema = new mongoose.Schema(
   {
@@ -14,7 +15,7 @@ const photoSchema = new mongoose.Schema(
 const productSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true, trim: true }, // 'neon-tetra'
-    category: { type: String, required: true, enum: ['fish', 'plant', 'decor'] },
+    category: { type: String, required: true, enum: ['fish', 'plant', 'decor', 'equipment'] },
     name: { type: String, required: true, trim: true },
     sci: { type: String, default: '', trim: true },
     price: { type: Number, required: true, min: 0 },
@@ -29,8 +30,12 @@ const productSchema = new mongoose.Schema(
     blurb: { type: String, default: '' },
     photos: { type: [photoSchema], default: [] },
   },
-  { timestamps: true, id: false},
+  { timestamps: true, id: false, toJSON: { virtuals: true } },
 )
+
+productSchema.virtual('effect').get(function () {
+  return productEffect(this)
+})
 
 productSchema.statics.getAllProducts = function () {
   return this.find().sort({ category: 1, name: 1 })

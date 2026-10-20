@@ -143,8 +143,7 @@ async function handleSubmit() {
                 class="form-text login__hint"
                 role="alert"
               >
-                Password must be at least 5 characters long and contain at least
-                1 letter and at least 1 number.
+                Use at least 5 characters, including at least 1 letter and 1 number.
               </p>
             </div>
 
@@ -173,7 +172,7 @@ async function handleSubmit() {
           >
             {{
               mode === 'signup'
-                ? 'Already an existing user? Log in'
+                ? 'Already have an account? Log in'
                 : "Don't have an account? Sign up"
             }}
           </button>

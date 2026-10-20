@@ -8,8 +8,8 @@ const QUIZ_STREAK_BONUSES = { 5: 5, 10: 10, 20: 20, 40: 40, 80: 80 }
 
 const DAILY_TASKS = [
   { id: 'feed', label: 'Feed your fish', reward: 5 },
-  { id: 'clean', label: 'Clean the tank', reward: 10 },
-  { id: 'temp', label: 'Adjust the temperature', reward: 5 },
+  { id: 'clean', label: 'Start a partial water change', reward: 10 },
+  { id: 'temp', label: 'Check temperature', reward: 5 },
 ]
 
 // Days are counted in Singapore time, so "today" is the same for everyone
@@ -56,7 +56,7 @@ function achievements(user, tanks) {
     { id: 'school', icon: 'aquarium', name: 'School of 10', earned: fishCount >= 10 },
     { id: 'fully-grown', icon: 'trophy', name: 'Fully grown', earned: fullyGrown },
     { id: 'streak', icon: 'flame', name: '3-day quiz streak', earned: currentStreak(user) >= 3 },
-    { id: 'saver', icon: 'coins', name: '500 pearls saved', earned: user.pearls >= 500 },
+    { id: 'saver', icon: 'pearl', name: '500 pearls saved', earned: user.pearls >= 500 },
     {
       id: 'carer',
       icon: 'clean',

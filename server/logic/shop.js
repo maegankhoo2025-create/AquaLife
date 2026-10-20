@@ -10,6 +10,11 @@ const { simulateTank } = require('./simulation')
 
 const DECOR_FLOOR_Y = 85 // new decorations start on the tank floor (same as game.js)
 const MAX_QUANTITY = 10
+const EQUIPMENT_POSITIONS = {
+  'aquarium-heater': { x: 90, y: 45 },
+  'cooling-fan': { x: 75, y: 25 },
+  'sponge-filter': { x: 12, y: 60 },
+}
 
 // Checks compatibility and pearls, then adds the item to the tank and charges the user.
 // Returns { status, body } for the route to send back.
@@ -24,7 +29,11 @@ async function purchase({ user, tank, item, quantity = 1, force = false, nicknam
     const freshUser = await User.findById(user._id).session(session)
     const freshTank = await Tank.findOne({ _id: tank._id, owner: user._id }).session(session)
     if (!freshUser || !freshTank) return { status: 404, body: { message: 'Tank not found.' } }
-    simulateTank(freshTank)
+    const now = new Date()
+    simulateTank(freshTank, now, { settle: true })
+    if (item.category === 'equipment' && (quantity !== 1 || freshTank.decorations.some((entry) => entry.itemId === item.id))) {
+      return { status: 400, body: { message: 'Only one of each equipment item can be installed in a tank.' } }
+    }
 
     let compatibility = { ok: true, reasons: [] }
     if (item.category === 'fish') {
@@ -52,11 +61,12 @@ async function purchase({ user, tank, item, quantity = 1, force = false, nicknam
 
     for (let i = 0; i < quantity; i++) {
       if (item.category === 'fish') {
-        freshTank.fish.push({ speciesId: item.id, nickname })
+        freshTank.fish.push({ speciesId: item.id, nickname, addedAt: now })
       } else {
         // Spread out along the floor so new items do not stack on each other.
         const x = 15 + ((freshTank.decorations.length * 23) % 70)
-        freshTank.decorations.push({ itemId: item.id, x, y: DECOR_FLOOR_Y })
+        const position = EQUIPMENT_POSITIONS[item.id] || { x, y: DECOR_FLOOR_Y }
+        freshTank.decorations.push({ itemId: item.id, ...position, addedAt: now, installedAt: now })
       }
     }
     await freshTank.save({ session })

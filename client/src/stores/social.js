@@ -104,6 +104,7 @@ export async function visitFriend(id) {
       comments: response.data.comments,
       tanks: response.data.tanks.map((tank) => ({
         ...tank, id: tank._id,
+        progression: tank.progression,
         fish: tank.fish.map((fish) => ({ ...fish, id: fish._id })),
         decorations: tank.decorations.map((item) => ({ ...item, id: item._id })),
       })),
@@ -129,6 +130,33 @@ export async function commentOnTank(friendId, tankId, content) {
   const sent = await change(() => LoginApi.post(`/api/friends/${friendId}/comments`, { tankId, content }))
   if (sent && social.visit?.friend.id === friendId) await visitFriend(friendId)
   return sent
+}
+
+export function canDeleteComment(entry) {
+  const senderId = entry.sender?._id ?? entry.sender?.id ?? entry.sender
+  return entry.type === 'comment' && (
+    String(senderId) === String(game.user.id) || entry.canDeleteComment === true
+  )
+}
+
+export async function deleteComment(id) {
+  if (social.busy) return false
+  social.busy = true
+  try {
+    const response = await LoginApi.delete(`/api/friends/comments/${id}`)
+    const deletedId = String(response.data.id)
+    social.inbox = social.inbox.filter((entry) => String(entry._id) !== deletedId)
+    if (social.visit) {
+      social.visit.comments = social.visit.comments.filter((entry) => String(entry._id) !== deletedId)
+    }
+    notify(response.data.message)
+    return true
+  } catch (error) {
+    notify(errorText(error, 'Unable to delete this comment. Please try again.'), true)
+    return false
+  } finally {
+    social.busy = false
+  }
 }
 
 export async function markRead(id) {

@@ -9,7 +9,7 @@ const Product = require('../models/Product-model')
 const { checkCompatibility } = require('../logic/compatibility')
 const Transaction = require('../models/Transaction-model')
 const { purchase } = require('../logic/shop')
-const { simulateTank } = require('../logic/simulation')
+const { simulateTank, loadOwnedTank } = require('../logic/simulation')
 
 const router = express.Router()
 
@@ -32,12 +32,6 @@ function requireLogin(req, res) {
   return true
 }
 
-// Helper: catch a tank up on the time that passed since it was last loaded
-// (hunger, health, water quality) and save it if anything changed
-async function simulateAndSave(tank) {
-  if (tank && simulateTank(tank)) await tank.save()
-  return tank
-}
 
 
 // GET /api/tanks -> list my tanks (Tank 1, Tank 2, ...)
@@ -45,8 +39,14 @@ router.get('/', async (req, res) => {
   if (!requireLogin(req, res)) return
 
   try {
-    const tanks = await Tank.getAllTanks(req.session.userId)
-    for (const tank of tanks) await simulateAndSave(tank)
+    const tanks = await Tank.db.transaction(async (session) => {
+      const owned = await Tank.find({ owner: req.session.userId }).sort({ createdAt: 1 }).session(session)
+      const now = new Date()
+      for (const tank of owned) {
+        if (simulateTank(tank, now)) await tank.save({ session })
+      }
+      return owned
+    })
     return res.status(200).json({ tanks })
   } catch (error) {
     console.error('Get tanks failed:', error)
@@ -59,7 +59,7 @@ router.get('/:id', async (req, res) => {
   if (!requireLogin(req, res)) return
 
   try {
-    const tank = await simulateAndSave(await Tank.getTankById(req.params.id, req.session.userId))
+    const tank = await loadOwnedTank(req.params.id, req.session.userId)
     if (!tank) return res.status(404).json({ message: 'Tank not found.' })
     return res.status(200).json({ tank })
   } catch (error) {
@@ -76,7 +76,7 @@ router.get('/:id/compatibility/:speciesId', async (req, res) => {
   if (!species) return res.status(400).json({ message: 'Unknown fish species.' })
 
   try {
-    const tank = await simulateAndSave(await Tank.getTankById(req.params.id, req.session.userId))
+    const tank = await loadOwnedTank(req.params.id, req.session.userId)
     if (!tank) return res.status(404).json({ message: 'Tank not found.' })
 
     const { ok, reasons } = checkCompatibility(species, tank)
@@ -137,10 +137,14 @@ router.patch('/:id/targets', async (req, res) => {
   }
 
   try {
-    // Elapsed hours use the old pH target; the new target only applies from now on.
-    const before = await simulateAndSave(await Tank.getTankById(req.params.id, req.session.userId))
-    if (!before) return res.status(404).json({ message: 'Tank not found.' })
-    const tank = await Tank.updateTank(req.params.id, req.session.userId, updates)
+    const tank = await Tank.db.transaction(async (session) => {
+      const current = await Tank.findOne({ _id: req.params.id, owner: req.session.userId }).session(session)
+      if (!current) return null
+      simulateTank(current, new Date(), { settle: true })
+      for (const [field, value] of Object.entries(updates)) current.set(field, value)
+      await current.save({ session })
+      return current
+    })
     if (!tank) return res.status(404).json({ message: 'Tank not found.' })
     return res.status(200).json({ message: 'Targets updated.', tank })
   } catch (error) {
@@ -173,7 +177,6 @@ router.post('/:id/fish', async (req, res) => {
     const user = await User.findById(req.session.userId)
     const tank = await Tank.getTankById(req.params.id, req.session.userId)
     if (!user || !tank) return res.status(404).json({ message: 'Tank not found.' })
-    simulateTank(tank)
 
     const { status, body } = await purchase({
       user,
@@ -208,11 +211,17 @@ router.patch('/:id/fish/:fishId', async (req, res) => {
     return res.status(400).json({ message: 'Please enter a nickname or notes to save.' })
   }
   try {
-    const tank = await Tank.findOneAndUpdate(
-      { _id: req.params.id, owner: req.session.userId, 'fish._id': req.params.fishId },
-      { $set: updates },
-      { new: true, runValidators: true },
-    )
+    const tank = await Tank.db.transaction(async (session) => {
+      const current = await Tank.findOne({ _id: req.params.id, owner: req.session.userId }).session(session)
+      if (!current) return null
+      simulateTank(current, new Date(), { settle: true })
+      const fish = current.fish.id(req.params.fishId)
+      if (!fish) return null
+      if (updates['fish.$.nickname'] !== undefined) fish.nickname = updates['fish.$.nickname']
+      if (updates['fish.$.notes'] !== undefined) fish.notes = updates['fish.$.notes']
+      await current.save({ session })
+      return current
+    })
     if (!tank) return res.status(404).json({ message: 'Fish not found.' })
     return res.json({ tank })
   } catch (error) {
@@ -227,11 +236,17 @@ router.patch('/:id/decorations/:decorationId', async (req, res) => {
     return res.status(400).json({ message: 'Invalid decoration position.' })
   }
   try {
-    const tank = await Tank.findOneAndUpdate(
-      { _id: req.params.id, owner: req.session.userId, 'decorations._id': req.params.decorationId },
-      { $set: { 'decorations.$.x': x, 'decorations.$.y': y } },
-      { new: true, runValidators: true },
-    )
+    const tank = await Tank.db.transaction(async (session) => {
+      const current = await Tank.findOne({ _id: req.params.id, owner: req.session.userId }).session(session)
+      if (!current) return null
+      simulateTank(current, new Date(), { settle: true })
+      const decoration = current.decorations.id(req.params.decorationId)
+      if (!decoration) return null
+      decoration.x = x
+      decoration.y = y
+      await current.save({ session })
+      return current
+    })
     if (!tank) return res.status(404).json({ message: 'Decoration not found.' })
     return res.json({ tank })
   } catch (error) {
@@ -253,7 +268,7 @@ router.delete('/:id/fish/:fishId', async (req, res) => {
       if (!user || !tank) return { status: 404, body: { message: 'Tank not found.' } }
 
       // A fish that died while the user was away has no resale value.
-      simulateTank(tank)
+      simulateTank(tank, new Date(), { settle: true })
       const fish = tank.fish.id(req.params.fishId)
       if (!fish) return { status: 404, body: { message: 'Fish not found.' } }
       const item = await Product.findOne({ id: fish.speciesId }).session(session)
@@ -295,7 +310,7 @@ router.delete('/:id/decorations/:decorationId', async (req, res) => {
       if (!user || !tank) return { status: 404, body: { message: 'Tank not found.' } }
 
       // Keep the pH reached so far, then stop this item's future effects.
-      simulateTank(tank)
+      simulateTank(tank, new Date(), { settle: true })
       const decoration = tank.decorations.id(req.params.decorationId)
       if (!decoration) return { status: 404, body: { message: 'Decoration not found.' } }
       const item = await Product.findOne({ id: decoration.itemId }).session(session)

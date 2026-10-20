@@ -4,10 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import PearlCount from '../components/PearlCount.vue'
 import TankScene from '../components/TankScene.vue'
-import { formatDate, game } from '../stores/game'
+import { conditionReading, formatDate, game, getItem } from '../stores/game'
 import {
   social, loadSocial, loadInvitation, requestFriend, answerRequest, acceptInvitation,
-  visitFriend, giftPearls, remindFriend, commentOnTank, markRead, invitationUrl, copyInvitation,
+  visitFriend, giftPearls, remindFriend, commentOnTank, canDeleteComment, deleteComment, markRead, invitationUrl, copyInvitation,
 } from '../stores/social'
 
 const route = useRoute()
@@ -19,12 +19,12 @@ const comment = ref('')
 const selectedTankId = ref('')
 const inviteToken = computed(() => typeof route.query.invite === 'string' ? route.query.invite : '')
 const shareUrl = computed(() => invitationUrl())
-const shareText = 'Join me on AquaLife and visit my aquarium. Open this invitation to accept my friend request.'
+const shareText = 'Join me on AquaLife to visit my aquarium. Follow this link and accept my friend invitation.'
 const whatsappUrl = computed(() => `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl.value}`)}`)
 const telegramUrl = computed(() => `https://t.me/share/url?url=${encodeURIComponent(shareUrl.value)}&text=${encodeURIComponent(shareText)}`)
 const invitedFriend = computed(() => social.friends.some((entry) => entry.user.id === social.inviter?.id))
 const selectedTank = computed(() => social.visit?.tanks.find((tank) => tank.id === selectedTankId.value))
-const tankComments = computed(() => social.visit?.comments.filter((entry) => String(entry.tank) === selectedTankId.value) || [])
+const tankComments = computed(() => social.visit?.comments.filter((entry) => String(entry.tank?._id ?? entry.tank) === selectedTankId.value) || [])
 const unreadCount = computed(() => social.inbox.filter((entry) => !entry.readAt).length)
 
 onMounted(loadSocial)
@@ -73,10 +73,10 @@ async function sendComment() {
       <h2 id="invitation-heading" class="h5">Friend invitation</h2>
       <p v-if="social.inviteError" class="mb-0" role="alert">{{ social.inviteError }}</p>
       <template v-else-if="social.inviter">
-        <p v-if="social.inviter.id === game.user.id" class="mb-0">This is your invitation. Share the link below with someone you would like to add.</p>
+        <p v-if="social.inviter.id === game.user.id" class="mb-0">This is your invitation. Share the link with someone you want to add.</p>
         <p v-else-if="invitedFriend" class="mb-0">You and {{ social.inviter.name }} are already friends.</p>
         <template v-else>
-          <p>{{ social.inviter.name }} has invited you to become friends. Accepting lets you visit each other’s tanks, send pearl gifts, reminders and comments.</p>
+          <p>{{ social.inviter.name }} invited you to be friends. Accept to visit each other's tanks and exchange pearl gifts, reminders and comments.</p>
           <button type="button" class="btn btn-aqua" :disabled="social.busy" @click="acceptLink">Accept invitation</button>
         </template>
       </template>
@@ -87,7 +87,7 @@ async function sendComment() {
       <div class="col-12 col-lg-6">
         <section class="al-card h-100" aria-labelledby="add-friend-heading">
           <h2 id="add-friend-heading" class="h5"><AppIcon name="user" /> Add a friend</h2>
-          <p class="small text-muted-al">Enter their exact account email. They must accept before you can visit or interact.</p>
+          <p class="small text-muted-al">Use their exact account email. You can visit and interact once they accept.</p>
           <form class="d-flex flex-wrap gap-2" @submit.prevent="addFriend">
             <label class="w-100" for="friend-email">Friend’s email</label>
             <input id="friend-email" v-model="email" type="email" class="form-control friend-email" maxlength="254" required autocomplete="off" />
@@ -96,7 +96,7 @@ async function sendComment() {
           <div v-if="social.outgoing.length" class="mt-3">
             <h3 class="h6">Awaiting a response</h3>
             <ul class="mb-0">
-              <li v-for="entry in social.outgoing" :key="entry.id">{{ entry.user.name }} — request pending</li>
+              <li v-for="entry in social.outgoing" :key="entry.id">{{ entry.user.name }} (request pending)</li>
             </ul>
           </div>
         </section>
@@ -104,7 +104,7 @@ async function sendComment() {
       <div class="col-12 col-lg-6">
         <section class="al-card h-100" aria-labelledby="share-heading">
           <h2 id="share-heading" class="h5">Invite with a link</h2>
-          <p class="small text-muted-al">Anyone with your link can explicitly accept your invitation. Share it only with people you want to add.</p>
+          <p class="small text-muted-al">Anyone with this link can choose to accept and become your friend. Share it only with people you want to add.</p>
           <template v-if="shareUrl">
             <label for="invitation-link" class="small mb-1">Your invitation link</label>
             <input id="invitation-link" class="form-control mb-2" :value="shareUrl" readonly @focus="$event.target.select()" />
@@ -150,7 +150,7 @@ async function sendComment() {
         <h2 id="visit-heading" class="h4 mb-0">{{ social.visit.friend.name }}’s aquarium</h2>
         <button type="button" class="btn btn-ghost" :disabled="social.busy" @click="social.visit = null">Close visit</button>
       </div>
-      <p class="small text-muted-al">Read-only visit. Only the owner can feed fish, change targets or arrange this aquarium.</p>
+      <p class="small text-muted-al">You can look around, but only the owner can feed fish, change goals or rearrange the aquarium.</p>
       <template v-if="social.visit.tanks.length">
         <label for="friend-tank" class="mb-1">Choose a tank</label>
         <select id="friend-tank" v-model="selectedTankId" class="form-select mb-3" :disabled="social.busy" @change="comment = ''">
@@ -159,12 +159,18 @@ async function sendComment() {
         <template v-if="selectedTank">
           <TankScene :tank="selectedTank" :interactive="false" />
           <p class="small text-muted-al mt-2">
-            {{ selectedTank.fish.length }} fish · {{ selectedTank.conditions.temperature }}°C · pH {{ selectedTank.conditions.ph }} · Water quality {{ selectedTank.conditions.waterQuality }}%
+            {{ selectedTank.fish.length }} fish · {{ conditionReading(selectedTank.conditions.temperature, 'temperature') }}°C · pH {{ conditionReading(selectedTank.conditions.ph, 'ph') }} · Water quality {{ conditionReading(selectedTank.conditions.waterQuality, 'waterQuality') }}%
           </p>
+          <ul v-if="selectedTank.fish.length" class="al-list friend-fish mb-3" aria-label="Friend’s fish">
+            <li v-for="fish in selectedTank.fish" :key="fish.id">
+              <span class="al-grow">{{ fish.nickname || getItem(fish.speciesId)?.name || 'Fish' }}</span>
+              <span v-if="fish.nickname" class="small text-muted-al">{{ getItem(fish.speciesId)?.name }}</span>
+            </li>
+          </ul>
           <button type="button" class="btn btn-ghost mb-3" :disabled="social.busy" @click="remindFriend(social.visit.friend.id, selectedTank.id)">
             <AppIcon name="food" /> Send feed reminder
           </button>
-          <p class="small text-muted-al">Reminders appear in your friend’s AquaLife inbox; they do not feed the fish or send an external notification.</p>
+          <p class="small text-muted-al">Reminders go to your friend's AquaLife inbox. They do not feed fish or send notifications outside the app.</p>
           <h3 class="h5">Tank comments</h3>
           <p v-if="!tankComments.length" class="text-muted-al small">No comments on this tank yet.</p>
           <ul v-else class="comment-list">
@@ -172,6 +178,7 @@ async function sendComment() {
               <strong>{{ entry.sender?.name || 'Former aquarist' }}</strong>
               <span class="small text-muted-al"> · {{ formatDate(entry.createdAt) }}</span>
               <p class="message-content mb-0">{{ entry.content }}</p>
+              <button v-if="canDeleteComment(entry)" type="button" class="btn btn-ghost btn-sm mt-2" :disabled="social.busy" @click="deleteComment(entry._id)">Delete comment</button>
             </li>
           </ul>
           <form class="mb-4" @submit.prevent="sendComment">
@@ -187,7 +194,7 @@ async function sendComment() {
       <p v-else class="text-muted-al">Your friend has no tanks yet.</p>
       <section class="gift-panel" aria-labelledby="gift-heading">
         <h3 id="gift-heading" class="h5">Gift pearls to {{ social.visit.friend.name }}</h3>
-        <p class="small">Your balance: <PearlCount :amount="game.pearls" />. Gifts transfer real pearls from your balance.</p>
+        <p class="small">Your balance: <PearlCount :amount="game.pearls" />. Gifted pearls come out of this balance.</p>
         <form @submit.prevent="sendGift">
           <label for="gift-amount" class="mb-1">Pearls</label>
           <input id="gift-amount" v-model.number="giftAmount" type="number" min="1" :max="Math.min(game.pearls, 1000000)" step="1" required class="form-control gift-amount mb-2" :disabled="social.busy" />
@@ -200,7 +207,7 @@ async function sendComment() {
 
     <section class="al-card" aria-labelledby="inbox-heading">
       <h2 id="inbox-heading" class="h5">Your inbox <span class="small text-muted-al">{{ unreadCount }} unread</span></h2>
-      <p class="small text-muted-al">Received pearl gifts, tank comments and feed reminders. Refresh above to check for new messages and update your balance.</p>
+      <p class="small text-muted-al">Pearl gifts, tank comments and feed reminders arrive here. Use Refresh friends and inbox to get new messages and your latest balance.</p>
       <p v-if="!social.inbox.length" class="text-muted-al mb-0">No messages yet.</p>
       <ul v-else class="inbox-list">
         <li v-for="entry in social.inbox" :key="entry._id" :class="{ 'inbox-unread': !entry.readAt }">
@@ -216,6 +223,7 @@ async function sendComment() {
           <p v-if="entry.content" class="message-content my-2">{{ entry.content }}</p>
           <button v-if="!entry.readAt" type="button" class="btn btn-ghost btn-sm mt-1" @click="markRead(entry._id)">Mark as read</button>
           <span v-else class="small text-muted-al">Read</span>
+          <button v-if="canDeleteComment(entry)" type="button" class="btn btn-ghost btn-sm ms-2 mt-1" :disabled="social.busy" @click="deleteComment(entry._id)">Delete comment</button>
         </li>
       </ul>
     </section>

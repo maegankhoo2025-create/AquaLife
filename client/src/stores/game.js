@@ -13,13 +13,18 @@ const shopItems = reactive([])
 
 const STORAGE_KEY = 'aqualife-prefs-v1'
 const XP_PER_LEVEL = 200
-const CONDITION_SAVE_DELAY = 400 // ms to wait after the last slider move before saving
+const POSITION_SAVE_DELAY = 400
 
-// Limits for the condition sliders (same min/max as server/models/Tank-model.js).
+// Display and goal-input limits match server/models/Tank-model.js.
 export const CONDITION_LIMITS = {
   temperature: { min: 15, max: 35, step: 1, unit: '°C', label: 'Temperature' },
   ph: { min: 5, max: 9, step: 0.1, unit: '', label: 'pH' },
   waterQuality: { min: 0, max: 100, step: 1, unit: '%', label: 'Water quality' },
+}
+
+export function conditionReading(value, condition) {
+  if (!Number.isFinite(value)) return 'Unavailable'
+  return Number(value.toFixed(condition === 'ph' ? 2 : 1))
 }
 const SAFE_WATER_QUALITY = [70, 100]
 
@@ -30,7 +35,7 @@ const DECOR_LIMITS = { minX: 6, maxX: 94, minY: 25, maxY: 90 }
 // Everything except settings and the selected tank comes from the server.
 function freshState() {
   return {
-    user: { id: null, name: 'Aquarist', email: '' },
+    user: { id: null, name: 'Aquarist', email: '', avatar: '' },
     pearls: 0,
     xp: 0,
     currentTankId: null,
@@ -92,7 +97,7 @@ function errorMessage(error, fallback) {
 // ---- User ----
 // Called by the router guard with the user returned by GET /auth/session.
 export function setUser(user) {
-  if (user) game.user = { id: user.id, name: user.name, email: user.email }
+  if (user) game.user = { id: user.id, name: user.name, email: user.email, avatar: user.avatar || '' }
 }
 export async function saveProfile(changes) {
   const { data } = await LoginApi.patch('/auth/profile', changes)
@@ -101,16 +106,27 @@ export async function saveProfile(changes) {
 }
 
 
-const pendingTargets = {}
 const pendingPositions = {}
 let tankRevision = 0
+let pendingTankWrites = 0
+const tankRefreshes = {}
+const lastTankRefresh = {}
+
+function beginTankWrite() {
+  tankRevision += 1
+  pendingTankWrites += 1
+}
+
+function endTankWrite() {
+  pendingTankWrites -= 1
+}
 // ---- Loading from the server ----
 // MongoDB ids are called _id. Pages use .id, so copy it across once here.
 function fromServer(tank) {
   return {
     ...tank,
     conditions: { ...tank.conditions },
-    targets: { ...tank.targets, ...pendingTargets[tank._id] },
+    targets: { ...tank.targets },
     id: tank._id,
     fish: tank.fish.map((fish) => ({
       ...fish,
@@ -173,10 +189,31 @@ export async function loadGame() {
 
   applyStats(me.data)
   applyHistory(history.data.history)
-  if (revision === tankRevision) game.tanks = tankList.map(fromServer)
-  if (!game.tanks.some((tank) => tank.id === game.currentTankId)) {
-    game.currentTankId = game.tanks[0].id
+  if (revision === tankRevision && !pendingTankWrites) {
+    game.tanks = tankList.map(fromServer)
+    tankRevision += 1
   }
+  if (!game.tanks.some((tank) => tank.id === game.currentTankId)) {
+    game.currentTankId = game.tanks[0]?.id || null
+  }
+}
+
+export const care = reactive({ userId: null, today: null, percent: 0, streak: 0, windowDays: 14, days: [] })
+
+// Reads the server's saved daily snapshots so progress reflects days and weeks.
+export async function loadCare() {
+  const userId = game.user.id
+  if (!userId) return
+  if (care.userId !== userId) {
+    Object.assign(care, { userId, today: null, percent: 0, streak: 0, windowDays: 14, days: [] })
+  }
+  const { data } = await LoginApi.get('/api/game/care')
+  if (game.user.id !== userId) return
+  care.today = data.today
+  care.percent = data.percent
+  care.streak = data.streak
+  care.windowDays = data.windowDays
+  care.days = data.days
 }
 
 // Called by the router guard on every page change. The first time (or after a
@@ -203,22 +240,7 @@ export const xpPerLevel = XP_PER_LEVEL
 
 //code to get shop item data from mongodb
 // Turn one Mongo product into the shape the shop pages already use.
-// photos in Mongo are objects { url, attribution, ... }.
-// ItemCard / ItemModal expect an array of URL strings.
 function forShop(product) {
-  const photoUrls = []
-
-  if (product.photos) {
-    for (let i = 0; i < product.photos.length; i++) {
-      const photo = product.photos[i]
-      if (typeof photo === 'string') {
-        photoUrls.push(photo)
-      } else if (photo && photo.url) {
-        photoUrls.push(photo.url)
-      }
-    }
-  }
-
   return {
     id: product.id, // slug like 'neon-tetra', not Mongo's _id
     category: product.category,
@@ -226,12 +248,12 @@ function forShop(product) {
     sci: product.sci,
     price: product.price,
     temperament: product.temperament,
+    effect: product.effect ?? null,
     care: product.care,
     temp: product.temp,
     ph: product.ph,
     size: product.size,
     blurb: product.blurb,
-    photos: photoUrls,
   }
 }
 
@@ -273,7 +295,6 @@ export async function loadSpeciesInfo() {
       })
 
       item.speciesInfo = data
-      item.photos = data.photo ? [data.photo.url] : []
     } catch (error) {
       console.error(`Unable to load ${item.sci}:`, error)
     }
@@ -289,7 +310,27 @@ export function getTank(id) {
   return game.tanks.find((tank) => tank.id === id)
 }
 
+// Only refresh the visible tank. A read started before an edit must not replace it.
+export async function refreshTank(tankId, { force = false } = {}) {
+  if (!tankId || tankId !== currentTank.value?.id || pendingTankWrites || tankRefreshes[tankId]) return
+  if (typeof document !== 'undefined' && document.hidden) return
+  if (!force && Date.now() - (lastTankRefresh[tankId] || 0) < 60000) return
+  lastTankRefresh[tankId] = Date.now()
+  const revision = tankRevision
+  const userId = game.user.id
+  tankRefreshes[tankId] = true
+  try {
+    const { data } = await LoginApi.get(`/api/tanks/${tankId}`)
+    if (revision === tankRevision && !pendingTankWrites && userId === game.user.id) putTank(data.tank)
+  } catch (error) {
+    console.error('Unable to refresh the tank:', error)
+  } finally {
+    delete tankRefreshes[tankId]
+  }
+}
+
 export async function createTank(name) {
+  beginTankWrite()
   try {
     const { data } = await LoginApi.post('/api/tanks', { name: name.trim() })
     putTank(data.tank)
@@ -297,6 +338,8 @@ export async function createTank(name) {
     return { ok: true }
   } catch (error) {
     return { ok: false, message: errorMessage(error, 'Unable to create the tank.') }
+  } finally {
+    endTankWrite()
   }
 }
 
@@ -327,59 +370,30 @@ export function safeRange(tank) {
   }
 }
 
-// Targets move immediately; actual conditions only change through care or simulation.
-const targetTimers = {}
-const savedTargets = {}
-const targetSaves = {}
-
-export function setTarget(tankId, key, value) {
-  const tank = getTank(tankId)
-  if (!savedTargets[tankId]) savedTargets[tankId] = { ...tank.targets }
-  tank.targets[key] = value
-  pendingTargets[tankId] = { ...pendingTargets[tankId], [key]: value }
-  tankRevision += 1
-  clearTimeout(targetTimers[tankId])
-  targetTimers[tankId] = setTimeout(() => saveTargets(tankId), CONDITION_SAVE_DELAY)
-}
-
-// Care and purchases must use the target just chosen, even before the debounce ends.
-async function saveTargets(tankId) {
-  clearTimeout(targetTimers[tankId])
-  if (targetSaves[tankId]) {
-    const saved = await targetSaves[tankId]
-    return pendingTargets[tankId] ? saveTargets(tankId) : saved
+// Saving a goal changes the plan, never the current reading.
+export async function saveGoals(tankId, goals) {
+  beginTankWrite()
+  try {
+    const { data } = await LoginApi.patch(`/api/tanks/${tankId}/targets`, goals)
+    putTank(data.tank)
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, message: errorMessage(error, 'Unable to save the tank goals.') }
+  } finally {
+    endTankWrite()
   }
-  const changes = pendingTargets[tankId]
-  if (!changes) return true
-  targetSaves[tankId] = (async () => {
-    try {
-      const { data } = await LoginApi.patch(`/api/tanks/${tankId}/targets`, changes)
-      savedTargets[tankId] = { ...data.tank.targets }
-      if (pendingTargets[tankId] === changes) delete pendingTargets[tankId]
-      putTank(data.tank)
-      return true
-    } catch (error) {
-      if (pendingTargets[tankId] === changes) {
-        delete pendingTargets[tankId]
-        getTank(tankId).targets = { ...savedTargets[tankId] }
-      }
-      notify(errorMessage(error, 'Unable to save the tank targets.'), true)
-      return false
-    } finally {
-      delete targetSaves[tankId]
-    }
-  })()
-  const saved = await targetSaves[tankId]
-  return pendingTargets[tankId] && pendingTargets[tankId] !== changes ? saveTargets(tankId) : saved
 }
 
 export async function saveFish(tankId, fishId, changes) {
+  beginTankWrite()
   try {
     const { data } = await LoginApi.patch(`/api/tanks/${tankId}/fish/${fishId}`, changes)
     putTank(data.tank)
     return { ok: true }
   } catch (error) {
     return { ok: false, message: errorMessage(error, 'Unable to save the fish details.') }
+  } finally {
+    endTankWrite()
   }
 }
 
@@ -387,6 +401,7 @@ export async function saveFish(tankId, fishId, changes) {
 // The server sends back the tank without that fish. A living fish is refunded
 // its shop price; a dead one is not. Returns { ok, message, refund }.
 export async function removeFish(tankId, fishId) {
+  beginTankWrite()
   try {
     const { data } = await LoginApi.delete(`/api/tanks/${tankId}/fish/${fishId}`)
     putTank(data.tank)
@@ -396,12 +411,15 @@ export async function removeFish(tankId, fishId) {
     return { ok: true, message: data.message, refund: data.refund }
   } catch (error) {
     return { ok: false, message: errorMessage(error, 'Unable to remove the fish.') }
+  } finally {
+    endTankWrite()
   }
 }
 
 // Removes a plant or decoration from a tank (DELETE /api/tanks/:id/decorations/:decorationId).
 // Its shop price is refunded. Returns { ok, message, refund }.
 export async function removeDecoration(tankId, decorationId) {
+  beginTankWrite()
   try {
     const { data } = await LoginApi.delete(`/api/tanks/${tankId}/decorations/${decorationId}`)
     putTank(data.tank)
@@ -411,12 +429,15 @@ export async function removeDecoration(tankId, decorationId) {
     return { ok: true, message: data.message, refund: data.refund }
   } catch (error) {
     return { ok: false, message: errorMessage(error, 'Unable to remove the decoration.') }
+  } finally {
+    endTankWrite()
   }
 }
 
 // Removes every dead fish (health 0) from a tank, one DELETE request per fish.
 // Returns { ok, message, removed } where removed is how many were taken out.
 export async function removeDeadFish(tankId) {
+  beginTankWrite()
   const dead = getTank(tankId).fish.filter((fish) => fish.health <= 0)
   let removed = 0
   try {
@@ -430,6 +451,7 @@ export async function removeDeadFish(tankId) {
   } catch (error) {
     return { ok: false, message: errorMessage(error, 'Unable to remove the dead fish.'), removed }
   } finally {
+    endTankWrite()
     refreshStats().catch((error) => console.error('Unable to refresh stats:', error))
   }
 }
@@ -449,15 +471,17 @@ export function moveDecoration(tankId, decorationId, x, y) {
   tankRevision += 1
   clearTimeout(positionTimers[decorationId])
   positionTimers[decorationId] = setTimeout(async () => {
+    beginTankWrite()
     try {
       await LoginApi.patch(`/api/tanks/${tankId}/decorations/${decorationId}`, changes)
     } catch (error) {
       notify(errorMessage(error, 'Unable to save the decoration position.'), true)
     } finally {
+      endTankWrite()
       if (pendingPositions[decorationId] === changes) delete pendingPositions[decorationId]
       tankRevision += 1
     }
-  }, CONDITION_SAVE_DELAY)
+  }, POSITION_SAVE_DELAY)
 }
 
 export function healthLabel(health) {
@@ -479,11 +503,11 @@ export function checkCompatibility(item, tank) {
   const { temperature, ph } = tank.conditions
   if (temperature < item.temp[0] || temperature > item.temp[1]) {
     reasons.push(
-      `${tank.name} is ${temperature}°C, but ${item.name} needs ${item.temp[0]}–${item.temp[1]}°C.`,
+      `${tank.name} is ${conditionReading(temperature, 'temperature')}°C, but ${item.name} needs ${item.temp[0]}–${item.temp[1]}°C.`,
     )
   }
   if (ph < item.ph[0] || ph > item.ph[1]) {
-    reasons.push(`${tank.name} has pH ${ph}, but ${item.name} needs pH ${item.ph[0]}–${item.ph[1]}.`)
+    reasons.push(`${tank.name} has pH ${conditionReading(ph, 'ph')}, but ${item.name} needs pH ${item.ph[0]}–${item.ph[1]}.`)
   }
 
   // An aggressive fish cannot share a tank with fish that are not aggressive.
@@ -527,8 +551,8 @@ export const totals = computed(() => {
 // Returns { ok, message }, or { ok: false, conflict: true, reasons } when the
 // server says the fish does not suit the tank. Send force to buy it anyway.
 export async function buyItem(item, tankId, quantity = 1, force = false) {
+  beginTankWrite()
   try {
-    if (!await saveTargets(tankId)) return { ok: false, message: 'Save the tank targets before buying an item.' }
     const { data } = await LoginApi.post('/api/game/buy', { itemId: item.id, tankId, quantity, force })
     putTank(data.tank)
     game.pearls = data.pearls
@@ -539,6 +563,8 @@ export async function buyItem(item, tankId, quantity = 1, force = false) {
       return { ok: false, conflict: true, message: error.response.data.message, reasons: error.response.data.reasons }
     }
     return { ok: false, message: errorMessage(error, 'Unable to complete the purchase.') }
+  } finally {
+    endTankWrite()
   }
 }
 
@@ -562,12 +588,11 @@ function playEffect(tankId, type) {
   effectTimer = setTimeout(() => (tankEffect.type = null), EFFECT_TIME)
 }
 
-// Feed, clean or adjust the temperature of a tank. The action always happens,
-// but pearls are only paid the first time each day.
+// Feed, start a water change or check temperature. Rewards are paid once a day.
 // Returns the pearls earned, or null if the request failed.
 export async function doTask(taskId, tankId) {
+  beginTankWrite()
   try {
-    if (!await saveTargets(tankId)) return null
     const { data } = await LoginApi.post(`/api/game/tasks/${taskId}`, { tankId })
     putTank(data.tank)
     playEffect(tankId, taskId)
@@ -578,6 +603,8 @@ export async function doTask(taskId, tankId) {
   } catch (error) {
     notify(errorMessage(error, 'Unable to do that task.'), true)
     return null
+  } finally {
+    endTankWrite()
   }
 }
 

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   CONDITION_LIMITS,
@@ -11,14 +11,15 @@ import {
   getTasks,
   healthLabel,
   notify,
+  refreshTank,
   removeDeadFish,
   removeDecoration,
   removeFish,
   safeRange,
-  setTarget,
+  saveGoals,
 } from '../stores/game'
 import AlModal from '../components/AlModal.vue'
-import ConditionSlider from '../components/ConditionSlider.vue'
+import ConditionBar from '../components/ConditionBar.vue'
 import { CARE_TIPS } from '../data/careTips'
 import TankSwiper from '../components/TankSwiper.vue'
 import AppIcon from '../components/AppIcon.vue'
@@ -32,6 +33,71 @@ const tankName = ref('')
 const creatingTank = ref(false)
 const createError = ref('')
 
+const now = ref(Date.now())
+const goalDraft = reactive({})
+const goalTankId = ref(null)
+const savingGoals = ref(false)
+const goalError = ref('')
+const busyTask = ref(null)
+const hasLivingFish = computed(() => tank.value.fish.some((fish) => fish.health > 0))
+const waterChange = computed(() => tank.value.maintenance?.waterChange)
+const changingWater = computed(() => Boolean(waterChange.value && new Date(waterChange.value.endsAt).getTime() > new Date(tank.value.progression?.asOf || 0).getTime()))
+const waterChangeCountdown = computed(() => {
+  if (!changingWater.value) return ''
+  const seconds = Math.max(0, Math.ceil((new Date(waterChange.value.endsAt).getTime() - now.value) / 1000))
+  if (!seconds) return 'Finishing…'
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s remaining`
+})
+
+watch(() => tank.value.id, (id) => {
+  goalTankId.value = id
+  Object.assign(goalDraft, tank.value.targets)
+  goalError.value = ''
+  fishToRemove.value = null
+  decorToRemove.value = null
+})
+
+async function submitGoals() {
+  if (savingGoals.value) return
+  const id = tank.value.id
+  savingGoals.value = true
+  goalError.value = ''
+  const result = await saveGoals(id, { ...goalDraft })
+  savingGoals.value = false
+  if (tank.value.id !== id) return
+  if (!result.ok) goalError.value = result.message
+  else notify('Goals saved.')
+}
+
+let countdownTimer
+let refreshTimer
+function stopTimers() {
+  clearInterval(countdownTimer)
+  clearInterval(refreshTimer)
+}
+function startTimers({ force = false } = {}) {
+  stopTimers()
+  if (document.hidden) return
+  now.value = Date.now()
+  refreshTank(tank.value.id, { force })
+  countdownTimer = setInterval(() => { now.value = Date.now() }, 1000)
+  refreshTimer = setInterval(() => { refreshTank(tank.value.id) }, 60000)
+}
+function onVisibilityChange() {
+  if (document.hidden) stopTimers()
+  else startTimers({ force: true })
+}
+watch(() => tank.value.id, () => startTimers())
+onMounted(() => {
+  goalTankId.value = tank.value.id
+  Object.assign(goalDraft, tank.value.targets)
+  startTimers()
+  document.addEventListener('visibilitychange', onVisibilityChange)
+})
+onUnmounted(() => {
+  stopTimers()
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+})
 async function submitTank() {
   if (creatingTank.value) return
   creatingTank.value = true
@@ -46,40 +112,11 @@ async function submitTank() {
   }
 }
 
-function targetReached(key) {
-  const actual = tank.value.conditions[key]
-  const target = tank.value.targets[key]
-  return key === 'waterQuality' ? actual >= target : Math.abs(actual - target) < 0.005
-}
-
-function careMethod(key) {
-  const actual = tank.value.conditions[key]
-  const target = tank.value.targets[key]
-  if (targetReached(key)) {
-    return key === 'waterQuality'
-      ? 'Target met or exceeded. A water change will not deliberately dirty clean water; monitor waste and test regularly.'
-      : 'Target reached. Keep monitoring the actual reading; moving a target never changes the water by itself.'
-  }
-  if (key === 'temperature') {
-    return `Next: use the ${actual < target ? 'heater' : 'cooler'} step. Each care action moves actual temperature by up to 1°C toward the target. Real heaters and coolers need time; avoid sudden changes.`
-  }
-  if (key === 'waterQuality') {
-    return 'Next: a partial water change raises actual water quality by up to 25 points toward the target. In a real tank, use conditioned, temperature-matched water and check ammonia, nitrite and nitrate.'
-  }
-  const lowering = actual > target
-  const itemIds = lowering ? ['driftwood', 'almond-leaves'] : ['crushed-coral']
-  const hasMethod = tank.value.decorations.some((item) => itemIds.includes(item.itemId))
-  const method = lowering
-    ? 'Driftwood lowers pH by 0.02 per piece/hour; almond leaves by 0.03, down to pH 6.5.'
-    : 'Crushed coral raises pH by 0.02 per piece/hour, up to pH 8.'
-  const beyondLimit = lowering ? target < 6.5 : target > 8
-  return `${hasMethod ? 'Installed natural items work over time.' : `Next: add ${lowering ? 'driftwood or almond leaves' : 'crushed coral'} from the shop.`} ${method} Up to 3 pieces of each count; effects stop at the target or item limit. ${beyondLimit ? 'This target is beyond those items’ physical limit; choose an achievable safe target. ' : ''}Neutral decorations and plants do not adjust pH. Natural changes take hours to days; re-open the tank to see elapsed-time changes.`
-}
 
 function taskLabel(task) {
-  if (task.id === 'temp') return 'Heater / cooler step'
-  if (task.id === 'clean') return 'Partial water change'
-  return task.label
+  if (task.id === 'temp') return 'Check temperature'
+  if (task.id === 'clean') return 'Partial change'
+  return 'Feed fish'
 }
 
 // Each fish in the tank together with its species details, for the fish list.
@@ -99,9 +136,16 @@ const fishList = computed(() =>
 )
 
 async function runTask(task) {
-  const earned = await doTask(task.id, tank.value.id)
-  if (earned === null) return // doTask already showed the error
-  notify(earned > 0 ? `${task.label}: +${earned} pearls` : `${task.label}: done`)
+  if (busyTask.value || (task.id === 'clean' && changingWater.value)) return
+  busyTask.value = task.id
+  const id = tank.value.id
+  const earned = await doTask(task.id, id)
+  busyTask.value = null
+  if (earned === null) return
+  const label = taskLabel(task)
+  notify(task.id === 'clean'
+    ? `Water change started.${earned > 0 ? ` +${earned} pearls` : ''}`
+    : earned > 0 ? `${label}: +${earned} pearls` : `${label}: done`)
 }
 
 // The fish waiting for a "Remove this fish?" answer, or null when the dialog is closed.
@@ -120,14 +164,7 @@ async function confirmRemove() {
   if (fishToRemove.value === target) fishToRemove.value = null
 }
 
-// What each item does to the water over time (see server/logic/simulation.js).
-const DECOR_EFFECTS = {
-  driftwood: 'Lowers pH 0.02 per piece/hour; minimum 6.5',
-  'almond-leaves': 'Lowers pH 0.03 per piece/hour; minimum 6.5',
-  'crushed-coral': 'Raises pH 0.02 per piece/hour; maximum 8',
-}
-
-// Each plant or decoration in the tank, for the decorations list.
+// Installed plants, equipment and decorations share the tank's item list.
 const decorList = computed(() =>
   tank.value.decorations.map((decoration) => {
     const item = getItem(decoration.itemId)
@@ -135,9 +172,6 @@ const decorList = computed(() =>
       id: decoration.id,
       item,
       name: item?.name ?? 'Item unavailable',
-      effect: item
-        ? (DECOR_EFFECTS[decoration.itemId] ?? (item.category === 'plant' ? 'Keeps water cleaner' : ''))
-        : '',
       refund: item?.price ?? null,
     }
   }),
@@ -158,8 +192,7 @@ async function confirmRemoveDecoration() {
   if (decorToRemove.value === target) decorToRemove.value = null
 }
 
-// Fish die (health 0) after about three days with no feeding or cleaning.
-// They stay in the tank until the user clears them out.
+// Dead fish remain in the tank until removed.
 const deadCount = computed(() => tank.value.fish.filter((fish) => fish.health <= 0).length)
 
 async function clearDeadFish() {
@@ -175,9 +208,9 @@ async function clearDeadFish() {
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
       <h1 class="al-title">My aquarium</h1>
       <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-ghost" type="button" @click="showCreateTank = true">Create tank</button>
+        <button class="btn btn-ghost" type="button" @click="showCreateTank = true">New tank</button>
         <RouterLink class="btn btn-aqua" :to="{ name: 'browse' }">
-          <AppIcon name="plus" /> Add fish or decorations
+          <AppIcon name="plus" /> Shop
         </RouterLink>
       </div>
     </div>
@@ -187,16 +220,35 @@ async function clearDeadFish() {
       <section class="col-12 col-lg-8">
         <TankSwiper v-model="game.currentTankId" :tanks="game.tanks" interactive />
 
+        <section class="al-card installed-items mb-3" aria-labelledby="installed-items-title">
+          <h2 id="installed-items-title" class="h5">Installed items ({{ decorList.length }})</h2>
+          <div v-if="decorList.length === 0" class="installed-items__empty">
+            <AppIcon name="plus" :size="28" />
+            <p class="mb-0"><RouterLink :to="{ name: 'browse' }">Add items from the shop</RouterLink></p>
+          </div>
+          <ul v-else class="installed-items__list">
+            <li v-for="decor in decorList" :key="decor.id" :title="decor.item?.effect?.detail">
+              <span class="installed-item-art"><ItemVisual :item="decor.item" /></span>
+              <span class="al-grow">
+                <strong>{{ decor.name }}</strong>
+              </span>
+              <button class="btn btn-ghost btn-sm" type="button" :aria-label="`Remove ${decor.name}`" @click="decorToRemove = decor">
+                Remove
+              </button>
+            </li>
+          </ul>
+        </section>
+
         <div class="row g-2">
           <div v-for="task in tasks" :key="task.id" class="col-12 col-sm-4">
-            <button class="btn btn-ghost w-100 h-100" type="button" @click="runTask(task)">
+            <button class="btn btn-ghost w-100 h-100" type="button" :disabled="busyTask !== null || (task.id === 'clean' && changingWater)" @click="runTask(task)">
               <AppIcon :name="task.icon" />
               {{ taskLabel(task) }}
               <span class="d-block small text-muted-al">
                 {{ task.done ? 'Rewarded today' : `+${task.reward} pearls` }}
               </span>
-              <span v-if="task.id !== 'feed'" class="d-block small text-muted-al">
-                {{ targetReached(task.id === 'temp' ? 'temperature' : 'waterQuality') ? 'Target reached; monitor conditions' : task.id === 'temp' ? 'Up to 1°C toward target' : 'Up to +25 quality toward target' }}
+              <span v-if="task.id === 'clean'" class="d-block small text-muted-al">
+                {{ changingWater ? waterChangeCountdown : '30 minutes' }}
               </span>
             </button>
           </div>
@@ -207,38 +259,51 @@ async function clearDeadFish() {
       <aside class="col-12 col-lg-4" aria-label="Tank conditions">
         <div class="al-card mb-3">
           <h2 class="h5">Conditions</h2>
-          <p class="small text-muted-al">Actual readings describe your water now. Sliders save targets only; use care actions or natural items to change the water.</p>
-          <p v-if="!tank.fish.some((fish) => fish.health > 0)" class="small text-muted-al">No living fish: the displayed temperature and pH ranges are game limits, not a species recommendation. Check a fish’s requirements before buying.</p>
           <div class="d-grid gap-3">
-            <ConditionSlider
+            <ConditionBar
               v-for="(limits, key) in CONDITION_LIMITS"
               :id="`condition-${key}`"
               :key="key"
               :label="limits.label"
               :min="limits.min"
               :max="limits.max"
-              :step="limits.step"
               :unit="limits.unit"
               :safe="safe[key]"
               :tips="CARE_TIPS[key]"
               :actual="tank.conditions[key]"
-              :model-value="tank.targets[key]"
-              :method="careMethod(key)"
-              :reached="targetReached(key)"
-              @update:model-value="setTarget(tank.id, key, $event)"
+              :goal="tank.targets[key]"
+              :forecast="tank.progression?.[key]"
+              :now="now"
+              :has-living-fish="hasLivingFish"
             />
           </div>
+          <p v-if="tank.progression?.asOf" class="small text-muted-al mt-3 mb-0" title="Readings refresh about once a minute while this page is visible.">
+            Updated {{ new Date(tank.progression.asOf).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
+          </p>
+          <details class="goal-form mt-3 pt-3">
+            <summary class="fw-semibold">Goals</summary>
+            <form class="mt-3" @submit.prevent="submitGoals">
+              <p class="small text-muted-al">pH materials keep working after the goal.</p>
+            <div class="row g-2">
+              <div v-for="(limits, key) in CONDITION_LIMITS" :key="key" class="col-4">
+                <label :for="`goal-${key}`" class="form-label small">{{ limits.label }}{{ limits.unit ? ` (${limits.unit})` : '' }}</label>
+                <input :id="`goal-${key}`" v-model.number="goalDraft[key]" type="number" class="form-control" :min="limits.min" :max="limits.max" :step="limits.step" :disabled="savingGoals" required />
+              </div>
+            </div>
+            <p v-if="goalError" class="small mt-2 mb-0" role="alert">{{ goalError }}</p>
+            <button class="btn btn-ghost btn-sm mt-3" type="submit" :disabled="savingGoals || goalTankId !== tank.id">{{ savingGoals ? 'Saving…' : 'Save goals' }}</button>
+          </form>
+          </details>
         </div>
 
         <div class="al-card">
           <h2 class="h5">Fish ({{ fishList.length }})</h2>
-          <p v-if="fishList.length" class="small text-muted-al">Tap a fish in the aquarium to edit its nickname and care notes.</p>
+          <p v-if="fishList.length" class="small text-muted-al">Select a fish in the tank for notes.</p>
           <p v-if="fishList.length === 0" class="text-muted-al mb-0">
-            This tank is empty. Add your first fish from the shop.
+            Add fish from the shop.
           </p>
           <div v-if="deadCount > 0" class="d-flex align-items-center gap-2 flex-wrap mb-2">
             <span class="al-chip al-chip--bad">{{ deadCount }} dead</span>
-            <span class="al-grow small text-muted-al">Fish die after about 3 days without care.</span>
             <button class="btn btn-ghost btn-sm" type="button" :disabled="isRemoving" @click="clearDeadFish">
               Remove dead fish
             </button>
@@ -263,30 +328,6 @@ async function clearDeadFish() {
           </ul>
         </div>
 
-        <div class="al-card mt-3">
-          <h2 class="h5">Plants and decorations ({{ decorList.length }})</h2>
-          <p v-if="decorList.length === 0" class="text-muted-al mb-0">
-            No plants or decorations yet. Some change the water: driftwood lowers pH and plants keep it
-            cleaner.
-          </p>
-          <ul v-else class="al-list">
-            <li v-for="decor in decorList" :key="decor.id">
-              <span class="tank-item-art"><ItemVisual :item="decor.item" /></span>
-              <span class="al-grow">
-                {{ decor.name }}
-                <span v-if="decor.effect" class="d-block small text-muted-al">{{ decor.effect }}</span>
-              </span>
-              <button
-                class="btn btn-ghost btn-sm"
-                type="button"
-                :aria-label="`Remove ${decor.name}`"
-                @click="decorToRemove = decor"
-              >
-                Remove
-              </button>
-            </li>
-          </ul>
-        </div>
       </aside>
     </div>
 
@@ -327,7 +368,7 @@ async function clearDeadFish() {
       <template v-if="decorToRemove">
         <p>
           <strong>{{ decorToRemove.name }}</strong> will be removed from {{ tank.name }}.
-          <template v-if="decorToRemove.effect"> Its effect ({{ decorToRemove.effect.toLowerCase() }}) stops.</template>
+          <template v-if="decorToRemove.item?.effect?.condition"> Its water effect stops when removed.</template>
         </p>
         <p v-if="decorToRemove.refund > 0">
           You will get <strong>{{ decorToRemove.refund }} pearls</strong> back.
@@ -351,5 +392,37 @@ async function clearDeadFish() {
   flex-shrink: 0;
   border-radius: 8px;
   background: var(--al-surface-2);
+}
+.installed-items__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.installed-items__list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--al-border);
+  border-radius: var(--al-radius-sm);
+  background: var(--al-surface-2);
+}
+.installed-item-art {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+}
+.installed-items__empty {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 64px;
+  color: var(--al-muted);
+}
+.goal-form {
+  border-top: 1px solid var(--al-border);
 }
 </style>

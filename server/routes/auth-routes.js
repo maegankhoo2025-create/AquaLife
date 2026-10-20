@@ -105,6 +105,7 @@ if (
           id: user._id,
           name: user.name,
           email: user.email,
+          avatar: user.avatar || '',
         },
       })
     })
@@ -133,7 +134,7 @@ router.post('/login', async (req, res) => {
     const cleanEmail = email.trim().toLowerCase()
 
     // passwordHash is hidden by default in User.js, so request it for this check.
-    const user = await User.findOne({ email: cleanEmail }).select('+passwordHash')
+    const user = await User.findOne({ email: cleanEmail }).select('+passwordHash +avatar')
 
     if (!user || !(await user.verifyPassword(password))) {
       return res.json({ message: 'Email or password is incorrect.' })
@@ -154,6 +155,7 @@ router.post('/login', async (req, res) => {
           id: user._id,
           name: user.name,
           email: user.email,
+          avatar: user.avatar || '',
         },
       })
     })
@@ -171,7 +173,7 @@ router.get('/session', async (req, res) => {
   }
 
   try {
-    const user = await User.findById(req.session.userId)
+    const user = await User.findById(req.session.userId).select('+avatar')
 
     if (!user) {
       return res.json({ loggedIn: false })
@@ -183,6 +185,7 @@ router.get('/session', async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        avatar: user.avatar || '',
       },
     })
   } catch (error) {
@@ -198,49 +201,50 @@ router.patch('/profile', async (req, res) => {
     return res.status(401).json({ message: 'Please log in first.' })
   }
 
-  const name = req.body.name
-  const email = req.body.email
-
+  const { name, email, avatar } = req.body
+  const hasAvatar = Object.prototype.hasOwnProperty.call(req.body, 'avatar')
   if (
-    typeof name !== 'string' ||
-    typeof email !== 'string' ||
-    !name.trim() ||
-    !email.trim()
+    (name !== undefined && (typeof name !== 'string' || !name.trim())) ||
+    (email !== undefined && (typeof email !== 'string' || !email.trim())) ||
+    (name === undefined && email === undefined && !hasAvatar)
   ) {
-    return res.status(400).json({ message: 'Please enter your name and email address.' })
+    return res.status(400).json({ message: 'Please enter your name, email address or profile picture.' })
+  }
+  if (hasAvatar && !User.validAvatar(avatar)) {
+    return res.status(400).json({ message: 'Choose a valid PNG thumbnail up to 128 × 128 pixels and 90 KB, or remove the picture.' })
   }
 
-  const cleanName = name.trim()
-  const cleanEmail = email.trim().toLowerCase()
-  const parts = cleanEmail.split('@')
-
-  if (cleanEmail.includes(' ') || parts.length !== 2 || parts[0] === '') {
-    return res.status(400).json({ message: 'Please enter a valid email address.' })
-  }
-
-  const afterAt = parts[1]
-  const dotPosition = afterAt.lastIndexOf('.')
-  if (dotPosition <= 0 || dotPosition === afterAt.length - 1) {
-    return res.status(400).json({ message: 'Please enter a valid email address.' })
+  const cleanName = name === undefined ? undefined : name.trim()
+  const cleanEmail = email === undefined ? undefined : email.trim().toLowerCase()
+  if (cleanEmail !== undefined) {
+    const parts = cleanEmail.split('@')
+    const afterAt = parts[1] || ''
+    const dotPosition = afterAt.lastIndexOf('.')
+    if (cleanEmail.includes(' ') || parts.length !== 2 || parts[0] === '' ||
+        dotPosition <= 0 || dotPosition === afterAt.length - 1) {
+      return res.status(400).json({ message: 'Please enter a valid email address.' })
+    }
   }
 
   try {
-    const user = await User.findById(req.session.userId)
+    const user = await User.findById(req.session.userId).select('+avatar')
     if (!user) {
       return res.status(401).json({ message: 'Please log in first.' })
     }
 
-    const existingUser = await User.findOne({ email: cleanEmail, _id: { $ne: user._id } })
-    if (existingUser) {
-      return res.status(409).json({ message: 'An account with this email already exists.' })
+    if (cleanEmail !== undefined) {
+      const existingUser = await User.findOne({ email: cleanEmail, _id: { $ne: user._id } })
+      if (existingUser) {
+        return res.status(409).json({ message: 'An account with this email already exists.' })
+      }
+      user.email = cleanEmail
     }
-
-    user.name = cleanName
-    user.email = cleanEmail
+    if (cleanName !== undefined) user.name = cleanName
+    if (hasAvatar) user.avatar = avatar
     await user.save()
 
     return res.json({
-      user: { id: user._id, name: user.name, email: user.email },
+      user: { id: user._id, name: user.name, email: user.email, avatar: user.avatar || '' },
       message: 'Profile updated successfully.',
     })
   } catch (error) {

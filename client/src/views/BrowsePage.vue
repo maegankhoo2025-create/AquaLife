@@ -24,6 +24,7 @@ const categories = [
   { value: 'fish', label: 'Fish' },
   { value: 'plant', label: 'Plants' },
   { value: 'decor', label: 'Decor' },
+  { value: 'equipment', label: 'Equipment' },
 ]
 const temperamentOptions = ['peaceful', 'semi-aggressive', 'aggressive']
 const careOptions = ['easy', 'moderate', 'hard']

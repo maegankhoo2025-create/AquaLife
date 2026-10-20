@@ -1,6 +1,7 @@
 require('dotenv').config()
 const mongoose = require('mongoose')
 const Product = require('./models/Product-model')
+const { EQUIPMENT } = require('./data/equipment')
 
 const PRODUCTS = [
   {
@@ -238,14 +239,19 @@ const PRODUCTS = [
     photos: [],
   },
 ]
+PRODUCTS.push(...EQUIPMENT)
 
 
 async function seed() {
   await mongoose.connect(process.env.MONGODB_URI)
-  await Product.deleteMany({})
-  const created = await Product.insertMany(PRODUCTS)
-  console.log(`Inserted ${created.length} products`)
-  created.forEach((p) => console.log(' -', p.id, p.price))
+  const result = await Product.bulkWrite(PRODUCTS.map((product) => ({
+    updateOne: {
+      filter: { id: product.id },
+      update: { $setOnInsert: product },
+      upsert: true,
+    },
+  })))
+  console.log(`Added ${result.upsertedCount} missing products; existing products were left unchanged.`)
   await mongoose.disconnect()
 }
 

@@ -1,28 +1,22 @@
 <script setup>
-// The live picture of one tank: fish swim from side to side and decorations
-// sit where the user placed them.
-//
-// When "interactive" is on (the tank page):
-//   - tapping a fish opens a card about it
-//   - the Decorate button lets the user drag decorations to a new spot
-// On the dashboard it is a preview only, so "interactive" is off.
-import { computed, ref, watch } from 'vue'
-import { getItem, healthLabel, moveDecoration, saveFish, tankEffect } from '../stores/game'
+// One tank, with independent fish movement and movable decorations.
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { conditionReading, game, getItem, healthLabel, moveDecoration, saveFish, tankEffect } from '../stores/game'
+import { createFishMotion, fitFishMotion, stepFishMotion } from './fishMotion'
 import AlModal from './AlModal.vue'
 import AppIcon from './AppIcon.vue'
 import ItemVisual from './ItemVisual.vue'
+import FishIcon from './FishIcon.vue'
 
 const props = defineProps({
   tank: { type: Object, required: true },
   interactive: { type: Boolean, default: false },
+  active: { type: Boolean, default: true },
 })
 
 // ---- Fish ----
-// The swimming itself is done by CSS animations (see the styles below). Here we
-// only give each fish its own lane, speed and starting point. These come from
-// the fish's place in the list, so they do not change each time the page redraws.
 const fishInScene = computed(() =>
-  props.tank.fish.map((fish, index) => {
+  props.tank.fish.map((fish) => {
     const species = getItem(fish.speciesId)
     // Bigger species are drawn bigger: up to 6 cm, up to 15 cm, and larger.
     const scale = species ? (species.size <= 6 ? 1 : species.size <= 15 ? 1.3 : 1.6) : 1
@@ -33,14 +27,7 @@ const fishInScene = computed(() =>
       visual: species || { category: 'fish', name: 'Species unavailable' },
       dead,
       name: fish.nickname || species?.name || 'Species unavailable',
-      style: {
-        // A dead fish floats belly-up near the surface instead of swimming in its lane.
-        top: dead ? '14%' : `${20 + ((index * 29) % 46)}%`,
-        '--swim-time': `${14 + ((index * 5) % 12)}s`,
-        '--swim-delay': `${index * -3.7}s`,
-        '--rest': `${(index * 37) % 90}%`, // where the fish sits if animations are off
-        '--scale': scale,
-      },
+      style: { '--scale': scale },
     }
   }),
 )
@@ -89,6 +76,239 @@ const pellets = Array.from({ length: 12 }, (_, index) => ({
 const scene = ref(null) // the tank element, used to measure its size
 const decorating = ref(false)
 const draggingId = ref(null)
+const decorationElements = new Map()
+let drag = null
+
+// Motion lives in a plain Map. A frame only updates DOM transforms, not Vue state.
+const swimmers = new Map()
+const fishElements = new Map()
+const focusedFishId = ref(null)
+const hoveredFishId = ref(null)
+const heldFishId = ref(null)
+const fishLabel = ref(null)
+const labeledFish = computed(() =>
+  fishInScene.value.find((entry) => entry.fish.id === (hoveredFishId.value || focusedFishId.value)),
+)
+const inView = ref(false)
+const pageVisible = ref(!document.hidden)
+const systemReduceMotion = ref(false)
+const reduceMotion = computed(() => systemReduceMotion.value || game.settings.reduceMotion)
+const fanRunning = computed(() =>
+  props.active && inView.value && pageVisible.value && !reduceMotion.value &&
+  !decorating.value && props.tank.progression?.temperature?.fanRunning === true,
+)
+let resizeObserver
+let intersectionObserver
+let motionQuery
+let frameId = null
+let previousFrame = null
+let mounted = false
+
+function setFishElement(id, element) {
+  const previous = fishElements.get(id)
+  if (previous === element) return
+  if (previous) resizeObserver?.unobserve(previous)
+  if (element) {
+    fishElements.set(id, element)
+    resizeObserver?.observe(element)
+  } else {
+    fishElements.delete(id)
+  }
+}
+function positionFishLabel() {
+  const label = fishLabel.value
+  const state = swimmers.get(labeledFish.value?.fish.id)
+  if (!label || !state?.initialized || !scene.value) return
+  const width = scene.value.clientWidth
+  const height = scene.value.clientHeight
+  const left = Math.max(8, Math.min(width - label.offsetWidth - 8, state.x - label.offsetWidth / 2))
+  let top = state.y - state.element.offsetHeight / 2 - label.offsetHeight - 6
+  if (top < 8) top = state.y + state.element.offsetHeight / 2 + 6
+  label.style.left = `${left}px`
+  label.style.top = `${Math.max(8, Math.min(height - label.offsetHeight - 8, top))}px`
+}
+
+
+function drawFish(state) {
+  if (!state.element || !state.initialized) return
+  state.element.style.transform = `translate3d(${state.x}px, ${state.y}px, 0) translate(-50%, -50%)`
+  state.artwork.style.transform = state.dead
+    ? 'scaleY(-1)'
+    : `rotate(${state.tilt}deg) scaleX(${state.facing})`
+}
+
+function measureFish() {
+  if (!mounted || !scene.value) return
+  const width = scene.value.clientWidth
+  const height = scene.value.clientHeight
+  if (!width || !height) return
+  for (const [id, state] of swimmers) {
+    const element = fishElements.get(id)
+    if (!element) continue
+    state.element = element
+    state.artwork = element.firstElementChild.firstElementChild
+    fitFishMotion(state, width, height, element.offsetWidth, element.offsetHeight, state.dead)
+    drawFish(state)
+  }
+  updateAnimation()
+  positionFishLabel()
+}
+
+function reconcileFish() {
+  const present = new Set()
+  for (const entry of fishInScene.value) {
+    const id = entry.fish.id
+    present.add(id)
+    let state = swimmers.get(id)
+    if (!state) {
+      state = createFishMotion(id)
+      swimmers.set(id, state)
+    }
+    state.dead = entry.dead
+  }
+  for (const id of swimmers.keys()) {
+    if (!present.has(id)) swimmers.delete(id)
+  }
+  if (selectedFishId.value && !present.has(selectedFishId.value)) selectedFishId.value = null
+  if (focusedFishId.value && !present.has(focusedFishId.value)) focusedFishId.value = null
+  if (hoveredFishId.value && !present.has(hoveredFishId.value)) hoveredFishId.value = null
+  if (heldFishId.value && !present.has(heldFishId.value)) heldFishId.value = null
+  measureFish()
+}
+
+function fishPaused(id) {
+  return id === focusedFishId.value || id === hoveredFishId.value ||
+    id === heldFishId.value || id === selectedFishId.value
+}
+
+function canAnimate() {
+  return mounted && props.active && inView.value && pageVisible.value &&
+    !reduceMotion.value && !decorating.value
+}
+
+function hasMovingFish() {
+  for (const [id, state] of swimmers) {
+    if (state.initialized && !state.dead && !fishPaused(id)) return true
+  }
+  return false
+}
+
+function animate(timestamp) {
+  frameId = null
+  if (!canAnimate()) {
+    previousFrame = null
+    return
+  }
+  const seconds = previousFrame === null ? 0 : (timestamp - previousFrame) / 1000
+  previousFrame = timestamp
+  for (const [id, state] of swimmers) {
+    if (state.dead || fishPaused(id)) continue
+    stepFishMotion(state, seconds)
+    drawFish(state)
+  }
+  if (hasMovingFish()) frameId = requestAnimationFrame(animate)
+  else previousFrame = null
+}
+
+function updateAnimation() {
+  if (canAnimate() && hasMovingFish()) {
+    if (frameId === null) {
+      previousFrame = null
+      frameId = requestAnimationFrame(animate)
+    }
+  } else {
+    if (frameId !== null) cancelAnimationFrame(frameId)
+    frameId = null
+    previousFrame = null
+  }
+}
+
+function onVisibilityChange() {
+  pageVisible.value = !document.hidden
+  if (document.hidden) {
+    hoveredFishId.value = null
+    endDrag()
+    heldFishId.value = null
+  }
+}
+
+function onMotionChange(event) {
+  systemReduceMotion.value = event.matches
+}
+
+function openFish(id) {
+  if (props.interactive && !decorating.value) selectedFishId.value = id
+}
+
+watch(fishInScene, reconcileFish, { flush: 'post' })
+watch(labeledFish, positionFishLabel, { flush: 'post' })
+watch([decorating, () => props.active, () => props.tank.id], () => {
+  endDrag()
+  if (!props.active) {
+    decorating.value = false
+    selectedFishId.value = null
+    focusedFishId.value = null
+    hoveredFishId.value = null
+    heldFishId.value = null
+  }
+})
+watch(
+  [() => props.active, inView, pageVisible, reduceMotion, decorating,
+    focusedFishId, hoveredFishId, heldFishId, selectedFishId],
+  updateAnimation,
+  { flush: 'sync' },
+)
+watch(reduceMotion, (reduced) => {
+  if (!reduced) return
+  for (const state of swimmers.values()) {
+    state.facing = -state.direction
+    state.tilt = 0
+    drawFish(state)
+  }
+}, { flush: 'sync' })
+watch(() => props.interactive, (interactive) => {
+  if (!interactive) {
+    decorating.value = false
+    selectedFishId.value = null
+    focusedFishId.value = null
+    hoveredFishId.value = null
+    heldFishId.value = null
+  }
+})
+
+onMounted(() => {
+  mounted = true
+  motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  systemReduceMotion.value = motionQuery.matches
+  motionQuery.addEventListener('change', onMotionChange)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  resizeObserver = new ResizeObserver(() => {
+    measureFish()
+    measureDecorations()
+  })
+  resizeObserver.observe(scene.value)
+  for (const element of fishElements.values()) resizeObserver.observe(element)
+  for (const element of decorationElements.values()) resizeObserver.observe(element)
+  intersectionObserver = new IntersectionObserver(([entry]) => {
+    inView.value = entry.isIntersecting && entry.intersectionRatio > 0
+  })
+  intersectionObserver.observe(scene.value)
+  reconcileFish()
+  measureDecorations()
+})
+
+onBeforeUnmount(() => {
+  mounted = false
+  endDrag()
+  if (frameId !== null) cancelAnimationFrame(frameId)
+  resizeObserver?.disconnect()
+  intersectionObserver?.disconnect()
+  motionQuery?.removeEventListener('change', onMotionChange)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  swimmers.clear()
+  fishElements.clear()
+  decorationElements.clear()
+})
 
 const decorations = computed(() =>
   props.tank.decorations.map((decoration) => {
@@ -97,31 +317,86 @@ const decorations = computed(() =>
       decoration,
       item,
       name: item?.name ?? 'Item unavailable',
+      sizeClass: item?.category === 'plant'
+        ? `decor--plant decor--${item.id}`
+        : `${item?.category === 'equipment' ? 'decor--equipment ' : ''}decor--${item?.id || 'unknown'}`,
       // zIndex: items lower in the tank are drawn in front of items higher up
-      style: { left: `${decoration.x}%`, top: `${decoration.y}%`, zIndex: decoration.y },
+      style: {
+        left: `clamp(var(--decor-inset-x, 0px), ${decoration.x}%, calc(100% - var(--decor-inset-x, 0px)))`,
+        top: `clamp(var(--decor-inset-y, 0px), ${decoration.y}%, calc(100% - var(--decor-inset-y, 0px)))`,
+        zIndex: Math.round(decoration.y),
+      },
     }
   }),
 )
 
+function setDecorationElement(id, element) {
+  const previous = decorationElements.get(id)
+  if (previous === element) return
+  if (previous) resizeObserver?.unobserve(previous)
+  if (element) {
+    decorationElements.set(id, element)
+    resizeObserver?.observe(element)
+  } else {
+    if (drag?.decorationId === id) endDrag()
+    decorationElements.delete(id)
+  }
+}
+
+function measureDecorations() {
+  for (const element of decorationElements.values()) {
+    element.style.setProperty('--decor-inset-x', `${element.offsetWidth / 2 + 8}px`)
+    element.style.setProperty('--decor-inset-y', `${element.offsetHeight / 2 + 8}px`)
+  }
+}
+
+function moveWithinScene(decoration, element, x, y) {
+  const width = scene.value.clientWidth
+  const height = scene.value.clientHeight
+  if (!width || !height) return
+  // Round inward because the store saves whole percentages.
+  const insetX = Math.ceil(((element.offsetWidth / 2 + 8) / width) * 100)
+  const insetY = Math.ceil(((element.offsetHeight / 2 + 8) / height) * 100)
+  moveDecoration(props.tank.id, decoration.id,
+    Math.max(insetX, Math.min(100 - insetX, x)),
+    Math.max(insetY, Math.min(100 - insetY, y)),
+  )
+}
+
 function startDrag(event, decoration) {
-  if (!decorating.value) return
+  if (!props.interactive || !props.active || !decorating.value || drag ||
+      !event.isPrimary || event.button !== 0) return
+  event.preventDefault()
+  const element = event.currentTarget
+  const box = element.getBoundingClientRect()
+  drag = {
+    decorationId: decoration.id,
+    pointerId: event.pointerId,
+    element,
+    offsetX: event.clientX - (box.left + box.width / 2),
+    offsetY: event.clientY - (box.top + box.height / 2),
+  }
   draggingId.value = decoration.id
-  // Pointer capture keeps sending us move events even if the finger or mouse
-  // slips off the item. Pointer events cover mouse, touch and pen with one set of code.
-  event.currentTarget.setPointerCapture(event.pointerId)
+  element.focus({ preventScroll: true })
+  // Capture touch, pen and mouse movement without starting a tank swipe.
+  element.setPointerCapture(event.pointerId)
 }
 
 function onDrag(event, decoration) {
-  if (draggingId.value !== decoration.id) return
-  // Turn the pointer's pixel position into a percentage of the tank's size.
+  if (!drag || drag.decorationId !== decoration.id || drag.pointerId !== event.pointerId) return
+  event.preventDefault()
   const box = scene.value.getBoundingClientRect()
-  const x = ((event.clientX - box.left) / box.width) * 100
-  const y = ((event.clientY - box.top) / box.height) * 100
-  moveDecoration(props.tank.id, decoration.id, x, y)
+  const x = ((event.clientX - box.left - scene.value.clientLeft - drag.offsetX) / scene.value.clientWidth) * 100
+  const y = ((event.clientY - box.top - scene.value.clientTop - drag.offsetY) / scene.value.clientHeight) * 100
+  moveWithinScene(decoration, drag.element, x, y)
 }
 
-function endDrag() {
+function endDrag(event) {
+  if (!drag || (event && event.pointerId !== drag.pointerId)) return
+  const { element, pointerId } = drag
+  drag = null
   draggingId.value = null
+  if (element.hasPointerCapture(pointerId)) element.releasePointerCapture(pointerId)
 }
 
 // Keyboard users can move the focused decoration with the arrow keys.
@@ -129,9 +404,15 @@ const KEY_STEPS = { ArrowLeft: [-2, 0], ArrowRight: [2, 0], ArrowUp: [0, -2], Ar
 
 function onDecorationKey(event, decoration) {
   const step = KEY_STEPS[event.key]
-  if (!decorating.value || !step) return
+  if (!props.interactive || !props.active || !decorating.value || !step) return
   event.preventDefault() // stop the arrow key scrolling the page
-  moveDecoration(props.tank.id, decoration.id, decoration.x + step[0], decoration.y + step[1])
+  event.stopPropagation()
+  const element = event.currentTarget
+  const box = element.getBoundingClientRect()
+  const tankBox = scene.value.getBoundingClientRect()
+  const x = ((box.left + box.width / 2 - tankBox.left - scene.value.clientLeft) / scene.value.clientWidth) * 100
+  const y = ((box.top + box.height / 2 - tankBox.top - scene.value.clientTop) / scene.value.clientHeight) * 100
+  moveWithinScene(decoration, element, x + step[0], y + step[1])
 }
 </script>
 
@@ -154,13 +435,38 @@ function onDecorationKey(event, decoration) {
     ref="scene"
     class="scene al-water"
     :class="{ 'scene--decorating': decorating }"
-    :role="interactive ? 'group' : 'img'"
+    role="group"
     :aria-label="`${tank.name} with ${tank.fish.length} fish`"
   >
-    <!-- Fish: the outer element swims across, the inner one turns round and bobs -->
+    <div class="scene__environment" aria-hidden="true">
+      <div class="scene__waterline"></div>
+      <svg class="scene__substrate" viewBox="0 0 1000 200" preserveAspectRatio="none">
+        <path fill="#c9bb9d" d="M0 16 Q180 4 360 24 T700 20 T1000 12 V200 H0Z" />
+        <path fill="#b5a587" d="M0 151 Q240 143 470 156 T1000 150 V200 H0Z" />
+        <g fill="#a59578">
+          <ellipse cx="65" cy="64" rx="5" ry="3" />
+          <ellipse cx="157" cy="115" rx="3" ry="3" />
+          <ellipse cx="284" cy="75" rx="4" ry="2" />
+          <ellipse cx="410" cy="131" rx="5" ry="3" />
+          <ellipse cx="552" cy="87" rx="3" ry="2" />
+          <ellipse cx="686" cy="120" rx="4" ry="3" />
+          <ellipse cx="804" cy="60" rx="5" ry="2" />
+          <ellipse cx="936" cy="102" rx="4" ry="3" />
+        </g>
+        <g fill="#e0d5bc">
+          <ellipse cx="112" cy="86" rx="6" ry="3" />
+          <ellipse cx="338" cy="112" rx="4" ry="2" />
+          <ellipse cx="602" cy="61" rx="5" ry="3" />
+          <ellipse cx="864" cy="133" rx="6" ry="3" />
+        </g>
+      </svg>
+    </div>
+
+    <!-- The hit target stays level while the artwork turns inside it. -->
     <div
       v-for="entry in fishInScene"
       :key="entry.fish.id"
+      :ref="(element) => setFishElement(entry.fish.id, element)"
       class="swim"
       :class="{ 'swim--dead': entry.dead }"
       :style="entry.style"
@@ -169,22 +475,35 @@ function onDecorationKey(event, decoration) {
         :is="interactive ? 'button' : 'span'"
         class="swim__fish"
         :type="interactive ? 'button' : null"
-        :aria-label="
-          interactive ? `${entry.name}${entry.dead ? ', dead' : ''}` : null
-        "
-        :aria-hidden="interactive ? null : 'true'"
-        @click="selectedFishId = entry.fish.id"
+        :tabindex="!decorating ? 0 : -1"
+        :role="interactive ? null : 'img'"
+        :aria-label="`${entry.name}${entry.dead ? ', dead' : ''}`"
+        @click="openFish(entry.fish.id)"
+        @focus="focusedFishId = entry.fish.id"
+        @blur="focusedFishId = null"
+        @pointerenter="hoveredFishId = entry.fish.id"
+        @pointerleave="hoveredFishId = null; heldFishId = null"
+        @pointerdown="interactive && (heldFishId = entry.fish.id)"
+        @pointerup="heldFishId = null"
+        @pointercancel="heldFishId = null"
       >
-        <span class="swim__bob"><ItemVisual :item="entry.visual" /></span>
+        <span class="swim__artwork"><FishIcon :species-id="entry.fish.speciesId" /></span>
       </component>
     </div>
+    <span
+      v-if="labeledFish && !decorating && active"
+      ref="fishLabel"
+      class="scene__fish-label"
+      aria-hidden="true"
+    >{{ labeledFish.name }}</span>
 
     <!-- Decorations -->
     <button
       v-for="entry in decorations"
       :key="entry.decoration.id"
+      :ref="(element) => setDecorationElement(entry.decoration.id, element)"
       class="decor"
-      :class="{ 'decor--dragging': draggingId === entry.decoration.id }"
+      :class="[entry.sizeClass, { 'decor--dragging': draggingId === entry.decoration.id }]"
       type="button"
       :style="entry.style"
       :tabindex="decorating ? 0 : -1"
@@ -194,15 +513,15 @@ function onDecorationKey(event, decoration) {
       @pointermove="onDrag($event, entry.decoration)"
       @pointerup="endDrag"
       @pointercancel="endDrag"
+      @lostpointercapture="endDrag"
+      @dragstart.prevent
       @keydown="onDecorationKey($event, entry.decoration)"
     >
-      <ItemVisual :item="entry.item" />
+      <ItemVisual :item="entry.item" :fan-running="fanRunning" />
     </button>
 
-    <div class="scene__floor" aria-hidden="true"></div>
-
     <!-- Care animations. :key restarts the animation when the same task is done again. -->
-    <div v-if="effect" :key="tankEffect.run" class="fx" :class="`fx--${effect}`" aria-hidden="true">
+    <div v-if="effect && !reduceMotion" :key="tankEffect.run" class="fx" :class="`fx--${effect}`" aria-hidden="true">
       <template v-if="effect === 'feed'">
         <span v-for="(pellet, index) in pellets" :key="index" class="fx__pellet" :style="pellet"></span>
       </template>
@@ -212,7 +531,7 @@ function onDecorationKey(event, decoration) {
       </template>
 
       <template v-else>
-        <span class="fx__thermo"><AppIcon name="thermometer" /> {{ tank.conditions.temperature }}°C</span>
+        <span class="fx__thermo"><AppIcon name="thermometer" /> {{ conditionReading(tank.conditions.temperature, 'temperature') }}°C</span>
       </template>
     </div>
 
@@ -240,34 +559,28 @@ function onDecorationKey(event, decoration) {
         <dl class="row g-2">
           <div class="col-6">
             <dt class="small text-muted-al fw-normal">Health</dt>
-            <dd class="fw-bold mb-0">{{ selected.fish.health }}%</dd>
+            <dd class="fw-bold mb-0">{{ conditionReading(selected.fish.health, 'health') }}%</dd>
           </div>
           <div class="col-6">
             <dt class="small text-muted-al fw-normal">Hunger</dt>
-            <dd class="fw-bold mb-0">{{ selected.fish.hunger }}%</dd>
+            <dd class="fw-bold mb-0">{{ conditionReading(selected.fish.hunger, 'hunger') }}%</dd>
           </div>
           <div class="col-6">
             <dt class="small text-muted-al fw-normal">Needs temperature</dt>
             <dd class="fw-bold mb-0">
-              <template v-if="selected.species?.temp">{{ selected.species.temp[0] }}–{{ selected.species.temp[1] }}°C</template>
+              <template v-if="selected.species?.temp">{{ conditionReading(selected.species.temp[0], 'temperature') }}–{{ conditionReading(selected.species.temp[1], 'temperature') }}°C</template>
               <template v-else>Unavailable</template>
             </dd>
           </div>
           <div class="col-6">
             <dt class="small text-muted-al fw-normal">Needs pH</dt>
             <dd class="fw-bold mb-0">
-              <template v-if="selected.species?.ph">{{ selected.species.ph[0] }}–{{ selected.species.ph[1] }}</template>
+              <template v-if="selected.species?.ph">{{ conditionReading(selected.species.ph[0], 'ph') }}–{{ conditionReading(selected.species.ph[1], 'ph') }}</template>
               <template v-else>Unavailable</template>
             </dd>
           </div>
         </dl>
 
-        <p v-if="selected.species?.speciesInfo?.photo" class="small text-muted-al">
-          Photo:
-          <a :href="selected.species.speciesInfo.photo.sourceUrl" target="_blank" rel="noopener noreferrer">
-            {{ selected.species.speciesInfo.photo.attribution }}
-          </a>
-        </p>
 
         <form @submit.prevent="saveDetails">
           <label :for="`nickname-${selected.fish.id}`" class="form-label">Nickname</label>
@@ -300,97 +613,119 @@ function onDecorationKey(event, decoration) {
 </template>
 
 <style scoped>
+.scene__fish-label {
+  position: absolute;
+  z-index: 110;
+  max-width: calc(100% - 16px);
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--al-border);
+  border-radius: var(--al-radius-sm);
+  background: var(--al-surface-2);
+  color: var(--al-text);
+  font-size: 0.8rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
 .scene {
   --fish-size: clamp(44px, 5vw, 64px);
   position: relative;
   /* clamp(): never shorter than 220px, never taller than 440px, 52vw in between */
   height: clamp(220px, 52vw, 440px);
   overflow: hidden;
-  border-radius: var(--al-radius-lg);
-  border: 1px solid var(--al-border);
+  isolation: isolate;
+  border-radius: 12px;
+  border: 2px solid #718d8b;
+  background: #c9dcd8;
 }
 
-/*
-  Swimming uses three small animations that share one length (--swim-time):
-    .swim       slides right, then back left
-    .swim__fish faces right for the first half, left for the second half
-    .swim__bob  drifts gently up and down
-  The lane is the tank's width minus room for the fish, so translateX(100%)
-  (100% of the lane's own width) stops exactly at the right-hand wall.
-*/
+.scene__environment {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.scene__environment::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 6px solid #b4cbc7;
+  border-top: 8px solid #e0eae5;
+  border-bottom: 7px solid #718d8b;
+}
+
+.scene__waterline {
+  position: absolute;
+  inset: 17px 7px auto;
+  height: 6px;
+  border-top: 2px solid #91b1ad;
+  border-bottom: 1px solid #e8efea;
+}
+
+.scene__substrate {
+  position: absolute;
+  inset: auto 6px 7px;
+  width: calc(100% - 12px);
+  height: 24%;
+}
+
 .swim {
   position: absolute;
   left: 0;
-  width: calc(100% - var(--fish-size) * 2);
-  height: 0;
-  pointer-events: none; /* the lane is invisible and must not block taps */
-  transform: translateX(var(--rest));
-  animation: swim var(--swim-time) ease-in-out var(--swim-delay) infinite;
+  top: 0;
+  z-index: 50;
+  width: calc(var(--fish-size) * var(--scale) * 1.25);
+  height: calc(var(--fish-size) * var(--scale));
+  max-width: calc(100% - 24px);
+  min-width: 44px;
+  min-height: 44px;
+  pointer-events: none;
 }
+
 
 .swim__fish {
   display: grid;
   place-items: center;
-  /* at least 44px so a small fish is still easy to tap */
-  min-width: var(--al-tap);
-  min-height: var(--al-tap);
-  width: calc(var(--fish-size) * var(--scale) * 1.25);
-  height: calc(var(--fish-size) * var(--scale));
+  min-width: 44px;
+  min-height: 44px;
+  width: 100%;
+  height: 100%;
   padding: 0;
-  border: 1px solid var(--al-border);
+  border: 0;
   border-radius: var(--al-radius-sm);
-  background: var(--al-surface-2);
+  background: transparent;
   pointer-events: auto;
-  /* step-end: jump straight to the next keyframe instead of turning slowly */
-  animation: face var(--swim-time) step-end var(--swim-delay) infinite;
 }
 
-.swim__bob {
+.swim__fish:focus-visible,
+.decor:focus-visible {
+  outline: 2px solid #204d56;
+  outline-offset: 2px;
+}
+
+.swim:focus-within {
+  z-index: 99;
+}
+
+.swim__artwork :deep(.fish-icon) {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+}
+
+.swim__artwork {
   display: block;
   width: 100%;
   height: 100%;
   border-radius: inherit;
-  animation: bob 3s ease-in-out infinite alternate;
+  pointer-events: none;
 }
 
-@keyframes swim {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  50% {
-    transform: translateX(100%);
-  }
-}
-
-/* Turn the fish artwork when it changes swimming direction. */
-@keyframes face {
-  0% {
-    transform: scaleX(-1);
-  }
-  50%,
-  100% {
-    transform: scaleX(1);
-  }
-}
-
-@keyframes bob {
-  from {
-    transform: translateY(-5px);
-  }
-  to {
-    transform: translateY(5px);
-  }
-}
-
-/* ---- Dead fish: grey, belly-up and still, floating near the surface ---- */
-.swim--dead {
-  animation: none;
-}
-
-.swim--dead .swim__fish {
-  animation: none;
-  transform: scaleY(-1);
+.swim--dead .swim__artwork {
   filter: grayscale(1);
   opacity: 0.6;
 }
@@ -501,22 +836,64 @@ function onDecorationKey(event, decoration) {
   place-items: center;
   min-width: var(--al-tap);
   min-height: var(--al-tap);
-  width: clamp(44px, 6vw, 64px);
-  height: clamp(44px, 6vw, 64px);
-  padding: 0.1rem;
+  width: clamp(64px, 11vw, 120px);
+  height: clamp(56px, 10vw, 104px);
+  max-width: calc(100% - 16px);
+  max-height: 26%;
+  padding: 0;
   border: 2px dashed transparent;
   border-radius: var(--al-radius-sm);
   background: none;
   font-size: clamp(1.8rem, 1.2rem + 3vw, 3.2rem);
   line-height: 1;
+  user-select: none;
   pointer-events: none; /* only movable in Decorate mode */
 }
 
-.scene__floor {
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 10px;
-  background: var(--al-surface-3);
+.decor :deep(.aquarium-item-icon) {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+}
+
+.decor--plant {
+  width: clamp(70px, 11vw, 124px);
+  height: clamp(88px, 15vw, 144px);
+  max-height: 28%;
+}
+
+.decor--anubias,
+.decor--java-moss {
+  width: clamp(74px, 12vw, 132px);
+  height: clamp(56px, 9vw, 96px);
+  max-height: 24%;
+}
+
+.decor--driftwood {
+  width: clamp(88px, 16vw, 168px);
+}
+
+.decor--almond-leaves,
+.decor--crushed-coral {
+  width: clamp(60px, 9vw, 96px);
+  height: clamp(44px, 6vw, 64px);
+}
+
+.decor--equipment {
+  width: clamp(56px, 8vw, 88px);
+  height: clamp(64px, 12vw, 112px);
+  max-height: 30%;
+}
+
+.decor--aquarium-heater {
+  width: clamp(44px, 7vw, 70px);
+  height: clamp(92px, 18vw, 150px);
+  max-height: 40%;
+}
+
+.decor--cooling-fan {
+  height: clamp(60px, 9vw, 96px);
 }
 
 /* ---- Decorate mode ---- */

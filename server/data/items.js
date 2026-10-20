@@ -1,6 +1,8 @@
 // Everything sold in the shop, with prices.
 // Copied from client/src/data/mock.js (ITEMS). Fish care ranges live in species.js.
 
+const { EQUIPMENT } = require('./equipment')
+
 const ITEMS = [
   { id: 'neon-tetra', category: 'fish', name: 'Neon Tetra', price: 30 },
   { id: 'guppy', category: 'fish', name: 'Guppy', price: 25 },
@@ -22,10 +24,13 @@ const ITEMS = [
   { id: 'rock-cave', category: 'decor', name: 'Rock Cave', price: 40 },
   { id: 'castle', category: 'decor', name: 'Sunken Castle', price: 80 },
   { id: 'treasure-chest', category: 'decor', name: 'Treasure Chest', price: 60 },
+  ...EQUIPMENT,
 ]
 
+const ITEMS_BY_ID = new Map(ITEMS.map((item) => [item.id, item]))
+
 function getItem(id) {
-  return ITEMS.find((item) => item.id === id)
+  return ITEMS_BY_ID.get(id)
 }
 
 module.exports = { ITEMS, getItem }

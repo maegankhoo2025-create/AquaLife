@@ -165,7 +165,7 @@ function answerClass(answerIndex) {
               {{ feedback.isCorrect ? 'Correct!' : 'Not quite' }}
             </span>
           </p>
-          <p><strong>Did you know?</strong> {{ feedback.fact }}</p>
+          <p>{{ feedback.fact }}</p>
           <button class="btn btn-aqua w-100" type="button" @click="next">
             {{ isLast ? 'See results' : 'Next question' }}
           </button>

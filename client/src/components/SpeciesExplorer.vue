@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import { conditionReading } from '../stores/game'
 
 const species = ref([])
 const loading = ref(true)
@@ -134,11 +135,11 @@ onMounted(loadSpecies)
       <template v-if="fish.conditions">
   <p>
     Temperature range:
-    {{ fish.conditions.temperature.min }}–{{ fish.conditions.temperature.max }}°C
+    {{ conditionReading(fish.conditions.temperature.min, 'temperature') }}–{{ conditionReading(fish.conditions.temperature.max, 'temperature') }}°C
   </p>
   <p>
     pH range:
-    {{ fish.conditions.ph.min }}–{{ fish.conditions.ph.max }}
+    {{ conditionReading(fish.conditions.ph.min, 'ph') }}–{{ conditionReading(fish.conditions.ph.max, 'ph') }}
   </p>
   <p>
   {{ fish.conditions.dataType === 'live-api'

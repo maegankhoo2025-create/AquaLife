@@ -1,15 +1,14 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
-  checkCompatibility,
+  care,
   formatDate,
   game,
   getTasks,
-  getItem,
   level,
+  loadCare,
   quizDoneToday,
-  safeRange,
   xpInLevel,
   xpPercent,
   xpPerLevel,
@@ -21,31 +20,37 @@ import AppIcon from '../components/AppIcon.vue'
 const tasks = computed(() => getTasks())
 const recentActivity = computed(() => game.history.slice(0, 4))
 
-// Four equally weighted learning activities, not a real-world readiness formula.
-const readiness = computed(() => {
-  const scores = game.quiz.scores || []
-  const correct = scores.reduce((total, entry) => total + entry.score, 0)
-  const careDone = tasks.value.filter((task) => task.done).length
-  const safeTanks = game.tanks.filter((tank) => {
-    if (!tank.fish.length || tank.fish.some((fish) => fish.health < 70)) return false
-    const safe = safeRange(tank)
-    const actualSafe = Object.keys(safe).every((key) =>
-      safe[key] && tank.conditions[key] >= safe[key][0] && tank.conditions[key] <= safe[key][1],
-    )
-    return actualSafe && tank.fish.every((fish) => {
-      const item = getItem(fish.speciesId)
-      return item && checkCompatibility(item, tank).ok
-    })
-  })
-  return [
-    { label: 'Take part in a quiz', done: scores.length > 0, evidence: `${scores.length} submitted quiz results saved.` },
-    { label: 'Demonstrate some correct knowledge', done: correct > 0, evidence: `${correct} correct answers across saved quiz results; one or more completes this item, not mastery of every topic.` },
-    { label: 'Practise all three care actions today', done: careDone === tasks.value.length, evidence: `${careDone} / ${tasks.value.length} care tasks rewarded today. This item resets daily; rewards may be earned across tanks.` },
-    { label: 'Keep a stocked virtual tank currently safe', done: safeTanks.length > 0, evidence: safeTanks.length ? `Currently meets this item: ${safeTanks.map((tank) => tank.name).join(', ')}.` : 'No stocked tank currently meets every condition below.' },
-  ]
+const careChecks = computed(() => care.today?.checks || [])
+const fullDays = computed(() => care.days.filter((entry) => entry.recorded && entry.met === entry.total).length)
+
+let careTimer
+let refreshingCare = false
+async function updateCare() {
+  if (document.hidden || refreshingCare) return
+  refreshingCare = true
+  try {
+    await loadCare()
+  } catch (error) {
+    console.error('Unable to refresh care progress:', error)
+  } finally {
+    refreshingCare = false
+  }
+}
+function onCareVisibility() {
+  clearInterval(careTimer)
+  if (document.hidden) return
+  updateCare()
+  careTimer = setInterval(updateCare, 60000)
+}
+onMounted(() => {
+  updateCare()
+  if (!document.hidden) careTimer = setInterval(updateCare, 60000)
+  document.addEventListener('visibilitychange', onCareVisibility)
 })
-const readinessDone = computed(() => readiness.value.filter((item) => item.done).length)
-const readinessPercent = computed(() => Math.round(readinessDone.value / readiness.value.length * 100))
+onUnmounted(() => {
+  clearInterval(careTimer)
+  document.removeEventListener('visibilitychange', onCareVisibility)
+})
 </script>
 
 <template>
@@ -122,32 +127,38 @@ const readinessPercent = computed(() => Math.round(readinessDone.value / readine
       </div>
 
 
-      <section class="col-12" aria-labelledby="readiness-title">
+      <section class="col-12" aria-labelledby="care-progress-title">
         <div class="al-card">
-          <h2 id="readiness-title" class="h5">Real-world aquarium preparation: learning checklist</h2>
-          <p><strong>Learning progress, not certification.</strong> These four equally weighted items reflect saved in-app evidence, not proof that you are ready to keep real fish.</p>
-          <p class="fw-bold mb-2">{{ readinessDone }} / {{ readiness.length }} learning items currently met ({{ readinessPercent }}%)</p>
+          <h2 id="care-progress-title" class="h5">Responsible fish care</h2>
+          <p class="fw-bold mb-2">{{ care.percent }}% over {{ care.windowDays }} days · {{ care.streak }}{{ care.streak === care.windowDays ? '+' : '' }}-day streak</p>
           <div
             class="al-progress"
             role="progressbar"
-            aria-label="In-app learning checklist progress"
-            :aria-valuenow="readinessDone"
+            aria-label="Responsible fish care progress"
+            :aria-valuenow="care.percent"
             aria-valuemin="0"
-            :aria-valuemax="readiness.length"
+            aria-valuemax="100"
           >
-            <div :style="{ width: `${readinessPercent}%` }"></div>
+            <div :style="{ width: `${care.percent}%` }"></div>
           </div>
+          <p class="small text-muted-al mt-2">{{ fullDays }} of the last {{ care.windowDays }} days had every check met.</p>
+          <ol class="care-days" aria-label="Daily care record">
+            <li v-for="day in care.days" :key="day.day" :class="{ 'care-days__full': day.recorded && day.met === day.total }" :title="`${day.day}: ${day.recorded ? `${day.met}/${day.total} checks` : 'Not recorded'}`">
+              <span>{{ day.day.slice(8) }}</span>
+              <strong>{{ day.recorded ? `${day.met}/${day.total}` : '-' }}</strong>
+            </li>
+          </ol>
+          <h3 class="h6 mt-3">Today</h3>
           <ul class="al-list mt-2">
-            <li v-for="item in readiness" :key="item.label">
+            <li v-for="item in careChecks" :key="item.id">
               <span class="al-grow">
                 <strong>{{ item.label }}</strong>
                 <span class="d-block small text-muted-al">{{ item.evidence }}</span>
               </span>
-              <span class="al-chip" :class="item.done ? 'al-chip--ok' : 'al-chip--warn'">{{ item.done ? 'Met' : 'Not yet' }}</span>
+              <span class="al-chip" :class="item.met ? 'al-chip--ok' : 'al-chip--warn'">{{ item.met ? 'Met' : 'Needs care' }}</span>
             </li>
           </ul>
-          <p class="small text-muted-al">A safe virtual tank must contain fish, have every fish at 70% health or higher (no dead fish), compatible temperaments, and actual temperature and pH in every living species’ shared range, with water quality at least 70%. Targets alone do not count. This current-state item can become unmet as conditions change.</p>
-          <p class="small mb-0">Before keeping real fish, research the species, suitable tank size and equipment, establish a fishless nitrogen cycle, test ammonia/nitrite/nitrate and source water, and plan stocking and ongoing care. This game does not verify any of that preparation, and even 4 / 4 is not a real-tank readiness guarantee.</p>
+          <p class="small mb-0">Each day is saved, so the bar reflects consistent care rather than one visit. Before keeping real fish, research your species and equipment, cycle the filter without fish, and test ammonia, nitrite, nitrate and source water.</p>
         </div>
       </section>
 
@@ -173,3 +184,30 @@ const readinessPercent = computed(() => Math.round(readinessDone.value / readine
   </main>
 </template>
 
+
+<style scoped>
+.care-days {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 0.35rem;
+  list-style: none;
+  padding: 0;
+}
+.care-days li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.4rem 0.15rem;
+  border: 1px solid var(--al-border);
+  border-radius: 8px;
+  color: var(--al-muted);
+  font-size: 0.75rem;
+}
+.care-days .care-days__full {
+  border-color: var(--al-ok);
+  color: var(--al-text);
+}
+@media (max-width: 575px) {
+  .care-days { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+}
+</style>

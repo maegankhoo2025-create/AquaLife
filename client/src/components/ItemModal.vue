@@ -3,7 +3,7 @@
 // with each tank, quantity and an "Add" button.
 // It only asks to add; the Browse page decides what happens (buy or show a conflict).
 import { computed, ref, watch } from 'vue'
-import { checkCompatibility, game } from '../stores/game'
+import { checkCompatibility, conditionReading, game } from '../stores/game'
 import AlModal from './AlModal.vue'
 import PearlCount from './PearlCount.vue'
 import ItemVisual from './ItemVisual.vue'
@@ -15,26 +15,24 @@ const props = defineProps({
 const emit = defineEmits(['close', 'add'])
 
 const quantity = ref(1)
-const photoIndex = ref(0)
 
-// Start again from 1 and the first photo each time a different item is opened.
+// Reset quantity when a different item opens.
 watch(
   () => props.item,
   () => {
     quantity.value = 1
-    photoIndex.value = 0
   },
 )
 
 const stats = computed(() => {
   const item = props.item
-  const list = [{ label: 'Care level', value: item.care }]
+  const list = item.care ? [{ label: 'Care level', value: item.care }] : []
   if (item.category === 'fish') {
     list.push(
       { label: 'Temperament', value: item.temperament },
      
       
-      { label: 'Adult size', value: `${item.size} cm` },
+      { label: 'Adult size', value: Number.isFinite(item.size) ? `${conditionReading(item.size, 'size')} cm` : 'Unavailable' },
     )
   }
   return list
@@ -46,6 +44,9 @@ const tankChecks = computed(() =>
 )
 
 const total = computed(() => props.item.price * quantity.value)
+const maxQuantity = computed(() => props.item?.category === 'equipment' ? 1 : 9)
+const installed = computed(() => props.item?.category === 'equipment'
+  && props.tank.decorations.some((entry) => entry.itemId === props.item.id))
 </script>
 
 <template>
@@ -53,32 +54,17 @@ const total = computed(() => props.item.price * quantity.value)
     <div v-if="item" class="row g-3">
       <div class="col-12 col-sm-5">
         <div class="al-ph gallery">
-          <ItemVisual :item="item" :photo-index="photoIndex" />
-        </div>
-        <p v-if="item.speciesInfo?.photo" class="small mt-2">
-         <a :href="item.speciesInfo.photo.sourceUrl" target="_blank"
-         rel="noopener noreferrer">
-    {{ item.speciesInfo.photo.attribution }}
-  </a>
-</p>
-        <div v-if="item.photos.length > 1" class="d-flex gap-2 mt-2">
-          <button
-            v-for="(_, index) in item.photos.slice(0, 4)"
-            :key="index"
-            class="al-ph gallery__thumb"
-            type="button"
-            :aria-label="`Photo ${index + 1}`"
-            :aria-current="index === photoIndex"
-            @click="photoIndex = index"
-          >
-            <ItemVisual :item="item" :photo-index="index" />
-          </button>
+          <ItemVisual :item="item" />
         </div>
       </div>
 
       <div class="col-12 col-sm-7">
         <p v-if="item.sci" class="fst-italic text-muted-al mb-1">{{ item.sci }}</p>
         <p>{{ item.blurb }}</p>
+        <section v-if="item.effect" class="item-effect mb-3">
+          <h3 class="h6 mb-1">Effect on your tank</h3>
+          <p class="small mb-0">{{ item.effect.detail }}</p>
+        </section>
         <template v-if="item.speciesInfo">
   <p>Family: {{ item.speciesInfo.family || 'Unavailable' }}</p>
   <p>Genus: {{ item.speciesInfo.genus || 'Unavailable' }}</p>
@@ -86,11 +72,11 @@ const total = computed(() => props.item.price * quantity.value)
   <div v-if="item.speciesInfo.conditions">
     <p>
       Species temperature range:
-      {{ item.speciesInfo.conditions.temperature.min }}–{{ item.speciesInfo.conditions.temperature.max }}°C
+      {{ conditionReading(item.speciesInfo.conditions.temperature.min, 'temperature') }}–{{ conditionReading(item.speciesInfo.conditions.temperature.max, 'temperature') }}°C
     </p>
     <p>
       Species pH range:
-      {{ item.speciesInfo.conditions.ph.min }}–{{ item.speciesInfo.conditions.ph.max }}
+      {{ conditionReading(item.speciesInfo.conditions.ph.min, 'ph') }}–{{ conditionReading(item.speciesInfo.conditions.ph.max, 'ph') }}
     </p>
     <a
       :href="item.speciesInfo.conditions.sourceUrl"
@@ -103,7 +89,7 @@ const total = computed(() => props.item.price * quantity.value)
   <p v-else>Species conditions unavailable.</p>
 </template>
 
-        <dl class="row g-2 mb-0">
+        <dl v-if="stats.length" class="row g-2 mb-0">
           <div v-for="stat in stats" :key="stat.label" class="col-6">
             <dt class="small text-muted-al fw-normal">{{ stat.label }}</dt>
             <dd class="fw-bold text-capitalize mb-0">{{ stat.value }}</dd>
@@ -111,11 +97,8 @@ const total = computed(() => props.item.price * quantity.value)
         </dl>
       </div>
 
-      <div class="col-12">
+      <div v-if="item.category === 'fish'" class="col-12">
         <h3 class="h6">Compatibility</h3>
-        <p class="small text-muted-al">
-         Checked against the game's configured care ranges.
-         </p>
         <ul class="al-list">
           <li v-for="check in tankChecks" :key="check.tank.id" class="align-items-start">
             <span class="al-chip" :class="check.ok ? 'al-chip--ok' : 'al-chip--bad'">
@@ -147,7 +130,7 @@ const total = computed(() => props.item.price * quantity.value)
             class="btn btn-ghost qty"
             type="button"
             aria-label="Increase quantity"
-            :disabled="quantity >= 9"
+            :disabled="quantity >= maxQuantity"
             @click="quantity++"
           >
             +
@@ -157,36 +140,49 @@ const total = computed(() => props.item.price * quantity.value)
         <button
           class="btn btn-aqua flex-grow-1"
           type="button"
-          :disabled="total > game.pearls"
+          :disabled="total > game.pearls || installed"
           @click="emit('add', { item, quantity })"
         >
-          Add to {{ tank.name }} · <PearlCount :amount="total" />
+          <template v-if="installed">Already installed</template>
+          <template v-else>Add to {{ tank.name }} · <PearlCount :amount="total" /></template>
         </button>
       </div>
-      <p v-if="total > game.pearls" class="col-12 small mb-0" role="status">
-        <span class="al-chip al-chip--warn">Not enough pearls</span>
-        You have <PearlCount :amount="game.pearls" />.
-      </p>
+      <div v-if="total > game.pearls" class="col-12">
+        <div class="purchase-balance" role="status">
+          <span class="al-chip al-chip--warn">Not enough pearls</span>
+          <span class="purchase-balance__amount">Balance: <PearlCount :amount="game.pearls" /></span>
+        </div>
+      </div>
     </div>
   </AlModal>
 </template>
 
 <style scoped>
+.item-effect {
+  border-left: 3px solid var(--al-aqua);
+  padding-left: 0.75rem;
+}
+
+.purchase-balance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.purchase-balance__amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+
 .gallery {
   aspect-ratio: 4 / 3;
   width: 100%;
 }
 
-.gallery__thumb {
-  width: var(--al-tap);
-  height: var(--al-tap);
-  padding: 0;
-  border: 2px solid transparent;
-}
-
-.gallery__thumb[aria-current='true'] {
-  border-color: var(--al-aqua);
-}
 
 .qty {
   width: var(--al-tap);

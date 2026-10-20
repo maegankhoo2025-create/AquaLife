@@ -1,30 +1,17 @@
 <script setup>
-import { computed, ref } from 'vue'
 import AquariumItemIcon from './AquariumItemIcon.vue'
 import FishIcon from './FishIcon.vue'
 
-const props = defineProps({
+defineProps({
   item: { type: Object, default: null },
-  photoIndex: { type: Number, default: 0 },
-})
-const failedPhoto = ref('')
-const photo = computed(() => {
-  const entry = props.item?.photos?.[props.photoIndex]
-  return typeof entry === 'string' ? entry : entry?.url
+  fanRunning: { type: Boolean, default: false },
 })
 </script>
 
 <template>
   <span class="item-visual">
-    <img
-      v-if="photo && failedPhoto !== photo"
-      :src="photo"
-      :alt="item?.name || 'Aquarium item'"
-      loading="lazy"
-      @error="failedPhoto = photo"
-    />
-    <FishIcon v-else-if="item?.category === 'fish'" :species-id="item.id" />
-    <AquariumItemIcon v-else :item-id="item?.id" :category="item?.category" />
+    <FishIcon v-if="item?.category === 'fish'" :species-id="item.id" />
+    <AquariumItemIcon v-else :item-id="item?.id" :category="item?.category" :fan-running="fanRunning" />
   </span>
 </template>
 
@@ -39,14 +26,13 @@ const photo = computed(() => {
   border-radius: inherit;
   color: var(--al-aqua);
 }
-.item-visual img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 .item-visual :deep(svg) {
   max-width: 65%;
   max-height: 65%;
+}
+.item-visual :deep(.aquarium-item-icon svg) {
+  max-width: 100%;
+  max-height: 100%;
 }
 .item-visual :deep(.fish-icon),
 .item-visual :deep(.aquarium-item-icon) {

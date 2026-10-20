@@ -11,7 +11,7 @@ defineProps({
 
 <template>
   <span class="pearl-count">
-    <AppIcon name="coins" :size="18" />
+    <AppIcon name="pearl" :size="22" />
     <span>{{ signed && amount > 0 ? '+' : '' }}{{ amount.toLocaleString() }}</span>
     <span class="visually-hidden">pearls</span>
   </span>

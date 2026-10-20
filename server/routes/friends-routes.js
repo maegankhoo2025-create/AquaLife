@@ -49,8 +49,15 @@ router.get('/', handle(async (req, res) => {
     else incoming.push(entry)
   }
   const inbox = await SocialMessage.find({ recipient: user._id })
-    .populate('sender', 'name').populate('tank', 'name').sort({ createdAt: -1 })
-  res.json({ friends, incoming, outgoing, inbox, inviteToken: user.inviteToken, pearls: user.pearls })
+    .populate('sender', 'name').populate('tank', 'name owner').sort({ createdAt: -1 })
+  const messages = inbox.map((message) => ({
+    ...message.toObject(),
+    canDeleteComment: message.type === 'comment' && (
+      String(message.sender?._id) === String(user._id) ||
+      String(message.tank?.owner) === String(user._id)
+    ),
+  }))
+  res.json({ friends, incoming, outgoing, inbox: messages, inviteToken: user.inviteToken, pearls: user.pearls })
 }))
 
 router.post('/requests', handle(async (req, res) => {
@@ -131,6 +138,20 @@ router.patch('/messages/:id/read', handle(async (req, res) => {
   res.json({ message })
 }))
 
+// Deletion is independent of friendship; gifts and reminders are never removed here.
+router.delete('/comments/:id', handle(async (req, res) => {
+  if (!validId(req.params.id)) return res.status(404).json({ message: 'Comment not found.' })
+  const comment = await SocialMessage.findOne({ _id: req.params.id, type: 'comment' })
+  if (!comment) return res.status(404).json({ message: 'Comment not found.' })
+  const isAuthor = String(comment.sender) === String(req.socialUser._id)
+  const ownsTank = comment.tank && await Tank.exists({ _id: comment.tank, owner: req.socialUser._id })
+  if (!isAuthor && !ownsTank) {
+    return res.status(403).json({ message: 'Only the author or current tank owner can delete this comment.' })
+  }
+  await comment.deleteOne()
+  res.json({ id: String(comment._id), message: 'Comment deleted.' })
+}))
+
 // Every visit, gift, reminder and comment requires an accepted friendship.
 router.use('/:friendId', async (req, res, next) => {
   try {
@@ -157,6 +178,7 @@ router.get('/:friendId/tanks', handle(async (req, res) => {
       _id: tank._id,
       name: tank.name,
       conditions: tank.conditions,
+      progression: tank.progression,
       fish: tank.fish.map((fish) => ({
         _id: fish._id, speciesId: fish.speciesId, nickname: fish.nickname,
         health: fish.health, hunger: fish.hunger, size: fish.size,

@@ -1,6 +1,7 @@
 <script setup>
 // Uses native horizontal scrolling with scroll-snap for touch swipes.
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { game } from '../stores/game'
 import TankScene from './TankScene.vue'
 import AppIcon from './AppIcon.vue'
 
@@ -25,7 +26,8 @@ function scrollToIndex(index, smooth = true) {
   if (!track.value) return
   track.value.scrollTo({
     left: index * track.value.clientWidth,
-    behavior: smooth ? 'smooth' : 'instant',
+    behavior: smooth && !game.settings.reduceMotion &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'instant',
   })
 }
 
@@ -59,6 +61,8 @@ onMounted(async () => {
   await nextTick()
   scrollToIndex(indexOfCurrent(), false)
 })
+
+onBeforeUnmount(() => clearTimeout(scrollTimer))
 </script>
 
 <template>
@@ -73,8 +77,13 @@ onMounted(async () => {
       @keydown.left.self.prevent="go(-1)"
       @keydown.right.self.prevent="go(1)"
     >
-      <div v-for="tank in tanks" :key="tank.id" class="swiper__slide">
-        <TankScene :tank="tank" :interactive="interactive" />
+      <div
+        v-for="tank in tanks"
+        :key="tank.id"
+        class="swiper__slide"
+        :inert="tank.id !== tanks[indexOfCurrent()]?.id"
+      >
+        <TankScene :tank="tank" :interactive="interactive" :active="tank.id === tanks[indexOfCurrent()]?.id" />
       </div>
     </div>
 

@@ -3,7 +3,7 @@
 
 const { getSpecies } = require('../data/species')
 
-// Same limits as the condition sliders in server/models/Tank-model.js
+// Same limits as the condition bars in server/models/Tank-model.js.
 const CONDITION_LIMITS = {
   temperature: { min: 15, max: 35 },
   ph: { min: 5, max: 9 },
@@ -45,11 +45,11 @@ function checkCompatibility(species, tank) {
   const { temperature, ph } = tank.conditions
   if (temperature < species.temp[0] || temperature > species.temp[1]) {
     reasons.push(
-      `${tank.name} is ${temperature}°C, but ${species.name} needs ${species.temp[0]}–${species.temp[1]}°C.`,
+      `${tank.name} is ${Number(temperature.toFixed(1))}°C, but ${species.name} needs ${species.temp[0]}–${species.temp[1]}°C.`,
     )
   }
   if (ph < species.ph[0] || ph > species.ph[1]) {
-    reasons.push(`${tank.name} has pH ${ph}, but ${species.name} needs pH ${species.ph[0]}–${species.ph[1]}.`)
+    reasons.push(`${tank.name} has pH ${Number(ph.toFixed(2))}, but ${species.name} needs pH ${species.ph[0]}–${species.ph[1]}.`)
   }
 
   // An aggressive fish cannot share a tank with fish that are not aggressive.

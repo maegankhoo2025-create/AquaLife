@@ -1,6 +1,6 @@
 <script setup>
-// One shop item: hover cycles photos; click or tap opens its details.
-import { computed, onUnmounted, ref } from 'vue'
+// Click or tap an illustration to open the item's details.
+import { computed } from 'vue'
 import { checkCompatibility } from '../stores/game'
 import PearlCount from './PearlCount.vue'
 import ItemVisual from './ItemVisual.vue'
@@ -13,23 +13,6 @@ const emit = defineEmits(['open'])
 
 const compatibility = computed(() => checkCompatibility(props.item, props.tank))
 
-// ---- Photo cycling on hover ----
-const photoIndex = ref(0)
-let photoTimer
-
-function startCycle() {
-  if (!props.item.photos || props.item.photos.length < 2) return
-  photoTimer = setInterval(() => {
-    photoIndex.value = (photoIndex.value + 1) % props.item.photos.length
-  }, 900)
-}
-
-function stopCycle() {
-  clearInterval(photoTimer)
-  photoIndex.value = 0
-}
-
-onUnmounted(stopCycle)
 
 </script>
 
@@ -37,16 +20,17 @@ onUnmounted(stopCycle)
   <article
     class="al-card item-card h-100"
     :class="{ 'item-card--conflict': !compatibility.ok }"
-    @mouseenter="startCycle"
-    @mouseleave="stopCycle"
   >
     <button class="item-card__main" type="button" aria-haspopup="dialog" @click="emit('open', item)">
       <span class="al-ph item-card__photo">
-        <ItemVisual :item="item" :photo-index="photoIndex" />
+        <ItemVisual :item="item" />
       </span>
 
       <span class="d-block fw-bold mt-2">{{ item.name }}</span>
       <span v-if="item.sci" class="d-block small fst-italic text-muted-al">{{ item.sci }}</span>
+      <span v-if="item.effect" class="d-block small item-card__effect mt-2" :title="item.effect.detail">
+        {{ item.effect.summary }}
+      </span>
 
       <span class="d-flex flex-wrap align-items-center gap-2 mt-2">
         <PearlCount :amount="item.price" />
@@ -89,6 +73,12 @@ onUnmounted(stopCycle)
   height: clamp(48px, 5vw, 64px);
   max-width: none;
   max-height: none;
+}
+
+.item-card__effect {
+  color: var(--al-muted);
+  font-weight: 400;
+  line-height: 1.4;
 }
 
 </style>
