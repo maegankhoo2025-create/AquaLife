@@ -23,13 +23,13 @@ const fishInScene = computed(() =>
   props.tank.fish.map((fish, index) => {
     const species = getItem(fish.speciesId)
     // Bigger species are drawn bigger: up to 6 cm, up to 15 cm, and larger.
-    const scale = species.size <= 6 ? 1 : species.size <= 15 ? 1.3 : 1.6
+    const scale = species ? (species.size <= 6 ? 1 : species.size <= 15 ? 1.3 : 1.6) : 1
     const dead = fish.health <= 0
     return {
       fish,
       species,
       dead,
-      name: fish.nickname || species.name,
+      name: fish.nickname || species?.name || 'Species unavailable',
       style: {
         // A dead fish floats belly-up near the surface instead of swimming in its lane.
         top: dead ? '14%' : `${20 + ((index * 29) % 46)}%`,
@@ -76,8 +76,8 @@ const decorations = computed(() =>
     const item = getItem(decoration.itemId)
     return {
       decoration,
-      emoji: item.emoji,
-      name: item.name,
+      emoji: item?.emoji ?? '?',
+      name: item?.name ?? 'Item unavailable',
       // zIndex: items lower in the tank are drawn in front of items higher up
       style: { left: `${decoration.x}%`, top: `${decoration.y}%`, zIndex: decoration.y },
     }
@@ -137,12 +137,12 @@ function onDecorationKey(event, decoration) {
         class="swim__fish"
         :type="interactive ? 'button' : null"
         :aria-label="
-          interactive ? `${entry.name}, ${entry.species.name}${entry.dead ? ', dead' : ''}` : null
+          interactive ? `${entry.name}, ${entry.species?.name ?? 'Species unavailable'}${entry.dead ? ', dead' : ''}` : null
         "
         :aria-hidden="interactive ? null : 'true'"
         @click="selectedFishId = entry.fish.id"
       >
-        <span class="swim__bob">{{ entry.species.emoji }}</span>
+        <span class="swim__bob">{{ entry.species?.emoji ?? '?' }}</span>
       </component>
     </div>
 
@@ -221,10 +221,10 @@ function onDecorationKey(event, decoration) {
     >
       <template v-if="selected">
         <div class="d-flex align-items-center gap-3 mb-3">
-          <div class="al-ph fish-card__photo" aria-hidden="true">{{ selected.species.emoji }}</div>
+          <div class="al-ph fish-card__photo" aria-hidden="true">{{ selected.species?.emoji ?? '?' }}</div>
           <div class="al-grow">
-            <p class="fw-bold mb-0">{{ selected.species.name }}</p>
-            <p class="small fst-italic text-muted-al mb-1">{{ selected.species.sci }}</p>
+            <p class="fw-bold mb-0">{{ selected.species?.name ?? 'Species unavailable' }}</p>
+            <p class="small fst-italic text-muted-al mb-1">{{ selected.species?.sci ?? 'Scientific name unavailable' }}</p>
             <span class="al-chip" :class="healthLabel(selected.fish.health).chip">
               {{ healthLabel(selected.fish.health).text }}
             </span>
@@ -242,11 +242,17 @@ function onDecorationKey(event, decoration) {
           </div>
           <div class="col-6">
             <dt class="small text-muted-al fw-normal">Needs temperature</dt>
-            <dd class="fw-bold mb-0">{{ selected.species.temp[0] }}–{{ selected.species.temp[1] }}°C</dd>
+            <dd class="fw-bold mb-0">
+              <template v-if="selected.species?.temp">{{ selected.species.temp[0] }}–{{ selected.species.temp[1] }}°C</template>
+              <template v-else>Unavailable</template>
+            </dd>
           </div>
           <div class="col-6">
             <dt class="small text-muted-al fw-normal">Needs pH</dt>
-            <dd class="fw-bold mb-0">{{ selected.species.ph[0] }}–{{ selected.species.ph[1] }}</dd>
+            <dd class="fw-bold mb-0">
+              <template v-if="selected.species?.ph">{{ selected.species.ph[0] }}–{{ selected.species.ph[1] }}</template>
+              <template v-else>Unavailable</template>
+            </dd>
           </div>
         </dl>
 
@@ -256,7 +262,7 @@ function onDecorationKey(event, decoration) {
           class="form-control"
           type="text"
           maxlength="20"
-          :placeholder="selected.species.name"
+          :placeholder="selected.species?.name ?? 'Species unavailable'"
           :value="selected.fish.nickname"
           @change="renameFish(tank.id, selected.fish.id, $event.target.value)"
         />

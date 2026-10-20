@@ -23,7 +23,7 @@ function requireLogin(req, res) {
 }
 
 // GET /api/quiz -> today's questions (no answers) and whether today's reward is used up.
-// Starts a new attempt: the answers are remembered in the session for /answer and /submit.
+// Reuses today's unfinished attempt so reloading cannot replace the first choices.
 router.get('/', async (req, res) => {
   if (!requireLogin(req, res)) return
 
@@ -31,15 +31,21 @@ router.get('/', async (req, res) => {
     const user = await User.findById(req.session.userId)
     if (!user) return res.status(404).json({ message: 'User not found.' })
 
-    const questions = questionsForDay(await getQuestionPool(), dayKey())
-    req.session.quiz = {
-      questions: questions.map(({ id, correct, fact, answers }) => ({ id, correct, fact, answerCount: answers.length })),
-      answers: {},
+    const today = dayKey()
+    let quiz = req.session.quiz
+    if (!quiz || quiz.userId !== req.session.userId || quiz.day !== today) {
+      quiz = {
+        userId: req.session.userId,
+        day: today,
+        questions: questionsForDay(await getQuestionPool(), today),
+        answers: {},
+      }
+      req.session.quiz = quiz
     }
 
     return res.status(200).json({
-      questions: questions.map(({ id, emoji, question, answers, photo }) => ({ id, emoji, question, answers, photo })),
-      doneToday: user.quiz.lastDay === dayKey(),
+      questions: quiz.questions.map(({ id, emoji, question, answers, photo }) => ({ id, emoji, question, answers, photo })),
+      doneToday: user.quiz.lastDay === today,
       streak: currentStreak(user),
     })
   } catch (error) {
@@ -55,11 +61,13 @@ router.post('/answer', (req, res) => {
   if (!requireLogin(req, res)) return
 
   const quiz = req.session.quiz
-  const question = quiz?.questions.find((q) => q.id === req.body.questionId)
+  const question = quiz?.userId === req.session.userId && quiz.day === dayKey()
+    ? quiz.questions.find((q) => q.id === req.body.questionId)
+    : null
   if (!question) return res.status(400).json({ message: 'That is not one of your quiz questions.' })
 
   const answer = Number(req.body.answer)
-  if (!Number.isInteger(answer) || answer < 0 || answer >= question.answerCount) {
+  if (!Number.isInteger(answer) || answer < 0 || answer >= question.answers.length) {
     return res.status(400).json({ message: 'Please choose one of the answers.' })
   }
 
@@ -80,7 +88,9 @@ router.post('/submit', async (req, res) => {
   if (!requireLogin(req, res)) return
 
   const quiz = req.session.quiz
-  if (!quiz || quiz.questions.some((question) => quiz.answers[question.id] === undefined)) {
+  const today = dayKey()
+  if (!quiz || quiz.userId !== req.session.userId || quiz.day !== today ||
+      quiz.questions.some((question) => quiz.answers[question.id] === undefined)) {
     return res.status(400).json({ message: `Please answer all ${QUIZ_LENGTH} questions first.` })
   }
 
@@ -94,13 +104,12 @@ router.post('/submit', async (req, res) => {
     })
     const score = results.filter((result) => result.isCorrect).length
     const total = results.length
-    req.session.quiz = null // this attempt is finished
 
     let reward = 0
-    if (user.quiz.lastDay !== dayKey()) {
+    if (user.quiz.lastDay !== today) {
       reward = score * PEARLS_PER_CORRECT_ANSWER
       user.quiz.streak = currentStreak(user) + 1
-      user.quiz.lastDay = dayKey()
+      user.quiz.lastDay = today
       user.quiz.scores.push({ score, total, reward })
       await changePearls(user, {
         type: 'reward',
@@ -109,6 +118,7 @@ router.post('/submit', async (req, res) => {
         xp: score * XP_PER_CORRECT_ANSWER,
       })
     }
+    req.session.quiz = null // the next GET can start a practice attempt
 
     return res.status(200).json({
       score,

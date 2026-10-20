@@ -95,14 +95,28 @@ export function setUser(user) {
   if (user) game.user = { id: user.id, name: user.name, email: user.email }
 }
 
+
+const pendingConditions = {}
+const pendingNicknames = {}
+const pendingPositions = {}
+let tankRevision = 0
 // ---- Loading from the server ----
 // MongoDB ids are called _id. Pages use .id, so copy it across once here.
 function fromServer(tank) {
   return {
     ...tank,
+    conditions: { ...tank.conditions, ...pendingConditions[tank._id] },
     id: tank._id,
-    fish: tank.fish.map((fish) => ({ ...fish, id: fish._id })),
-    decorations: tank.decorations.map((decoration) => ({ ...decoration, id: decoration._id })),
+    fish: tank.fish.map((fish) => ({
+      ...fish,
+      id: fish._id,
+      nickname: pendingNicknames[fish._id]?.nickname ?? fish.nickname,
+    })),
+    decorations: tank.decorations.map((decoration) => ({
+      ...decoration,
+      id: decoration._id,
+      ...pendingPositions[decoration._id],
+    })),
   }
 }
 
@@ -138,6 +152,7 @@ async function refreshStats() {
 
 // Loads everything for the logged-in user. A brand-new account gets its first tank.
 export async function loadGame() {
+  const revision = tankRevision
   const [me, tanks, history] = await Promise.all([
     LoginApi.get('/api/game/me'),
     LoginApi.get('/api/tanks'),
@@ -153,7 +168,7 @@ export async function loadGame() {
 
   applyStats(me.data)
   applyHistory(history.data.history)
-  game.tanks = tankList.map(fromServer)
+  if (revision === tankRevision) game.tanks = tankList.map(fromServer)
   if (!game.tanks.some((tank) => tank.id === game.currentTankId)) {
     game.currentTankId = game.tanks[0].id
   }
@@ -302,21 +317,38 @@ const conditionTimers = {}
 
 export function setCondition(tankId, key, value) {
   getTank(tankId).conditions[key] = value
-
+  pendingConditions[tankId] = { ...pendingConditions[tankId], [key]: value }
+  tankRevision += 1
   clearTimeout(conditionTimers[tankId])
   conditionTimers[tankId] = setTimeout(async () => {
+    const changes = pendingConditions[tankId]
     try {
-      await LoginApi.patch(`/api/tanks/${tankId}/conditions`, getTank(tankId).conditions)
+      const { data } = await LoginApi.patch(`/api/tanks/${tankId}/conditions`, changes)
+      if (pendingConditions[tankId] === changes) delete pendingConditions[tankId]
+      tankRevision += 1
+      putTank(data.tank)
     } catch (error) {
+      if (pendingConditions[tankId] === changes) delete pendingConditions[tankId]
       notify(errorMessage(error, 'Unable to save the tank conditions.'), true)
     }
   }, CONDITION_SAVE_DELAY)
 }
 
-// Not saved to the server yet: there is no route for nicknames.
-export function renameFish(tankId, fishId, nickname) {
+export async function renameFish(tankId, fishId, nickname) {
   const fish = getTank(tankId).fish.find((f) => f.id === fishId)
-  if (fish) fish.nickname = nickname.trim().slice(0, 20)
+  if (!fish) return
+  const changes = { nickname: nickname.trim().slice(0, 20) }
+  fish.nickname = changes.nickname
+  pendingNicknames[fishId] = changes
+  tankRevision += 1
+  try {
+    await LoginApi.patch(`/api/tanks/${tankId}/fish/${fishId}`, changes)
+  } catch (error) {
+    notify(errorMessage(error, 'Unable to save the nickname.'), true)
+  } finally {
+    if (pendingNicknames[fishId] === changes) delete pendingNicknames[fishId]
+    tankRevision += 1
+  }
 }
 
 // Removes a fish from a tank for good (DELETE /api/tanks/:id/fish/:fishId).
@@ -370,13 +402,30 @@ export async function removeDeadFish(tankId) {
   }
 }
 
-// Decorate mode: remember where a decoration was dropped.
-// Not saved to the server yet: there is no route for decoration positions.
+// Save the final position after dragging stops.
+const positionTimers = {}
+
 export function moveDecoration(tankId, decorationId, x, y) {
   const decoration = getTank(tankId).decorations.find((d) => d.id === decorationId)
   if (!decoration) return
-  decoration.x = Math.round(Math.min(DECOR_LIMITS.maxX, Math.max(DECOR_LIMITS.minX, x)))
-  decoration.y = Math.round(Math.min(DECOR_LIMITS.maxY, Math.max(DECOR_LIMITS.minY, y)))
+  const changes = {
+    x: Math.round(Math.min(DECOR_LIMITS.maxX, Math.max(DECOR_LIMITS.minX, x))),
+    y: Math.round(Math.min(DECOR_LIMITS.maxY, Math.max(DECOR_LIMITS.minY, y))),
+  }
+  Object.assign(decoration, changes)
+  pendingPositions[decorationId] = changes
+  tankRevision += 1
+  clearTimeout(positionTimers[decorationId])
+  positionTimers[decorationId] = setTimeout(async () => {
+    try {
+      await LoginApi.patch(`/api/tanks/${tankId}/decorations/${decorationId}`, changes)
+    } catch (error) {
+      notify(errorMessage(error, 'Unable to save the decoration position.'), true)
+    } finally {
+      if (pendingPositions[decorationId] === changes) delete pendingPositions[decorationId]
+      tankRevision += 1
+    }
+  }, CONDITION_SAVE_DELAY)
 }
 
 export function healthLabel(health) {

@@ -14,10 +14,10 @@ aqualife/
 
 ## Run the back end locally
 
-1. Install Node.js 22.12+ and pnpm (`npm install -g pnpm`), plus MongoDB (or a free MongoDB Atlas cluster).
+1. Install Node.js 22.18+ and pnpm (`npm install -g pnpm`), plus a MongoDB replica set (or a free MongoDB Atlas cluster). Purchases use transactions, which standalone MongoDB does not support.
 2. `cd server`
 3. `pnpm install`
-4. Copy `.env.example` to `.env` and set `MONGODB_URI`.
+4. Create `server/.env` with `MONGODB_URI` and `SESSION_SECRET`.
 5. `pnpm dev`
 6. Open http://localhost:8000/api/health and you should see `{"status":"ok","db":"connected"}`.
 

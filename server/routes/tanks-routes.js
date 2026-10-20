@@ -202,6 +202,43 @@ router.post('/:id/fish', async (req, res) => {
   }
 })
 
+router.patch('/:id/fish/:fishId', async (req, res) => {
+  if (!requireLogin(req, res)) return
+  if (typeof req.body.nickname !== 'string') {
+    return res.status(400).json({ message: 'Please enter a nickname.' })
+  }
+  try {
+    const tank = await Tank.findOneAndUpdate(
+      { _id: req.params.id, owner: req.session.userId, 'fish._id': req.params.fishId },
+      { $set: { 'fish.$.nickname': req.body.nickname.trim().slice(0, 20) } },
+      { new: true, runValidators: true },
+    )
+    if (!tank) return res.status(404).json({ message: 'Fish not found.' })
+    return res.json({ tank })
+  } catch (error) {
+    return res.status(400).json({ message: 'Unable to save the nickname.' })
+  }
+})
+
+router.patch('/:id/decorations/:decorationId', async (req, res) => {
+  if (!requireLogin(req, res)) return
+  const { x, y } = req.body
+  if (!Number.isFinite(x) || !Number.isFinite(y) || x < 6 || x > 94 || y < 25 || y > 90) {
+    return res.status(400).json({ message: 'Invalid decoration position.' })
+  }
+  try {
+    const tank = await Tank.findOneAndUpdate(
+      { _id: req.params.id, owner: req.session.userId, 'decorations._id': req.params.decorationId },
+      { $set: { 'decorations.$.x': x, 'decorations.$.y': y } },
+      { new: true, runValidators: true },
+    )
+    if (!tank) return res.status(404).json({ message: 'Decoration not found.' })
+    return res.json({ tank })
+  } catch (error) {
+    return res.status(400).json({ message: 'Unable to save the decoration position.' })
+  }
+})
+
 
 // DELETE /api/tanks/:id/fish/:fishId -> remove a fish
 // A living fish is sold back: its shop price is refunded in pearls.

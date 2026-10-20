@@ -31,12 +31,12 @@ const fishList = computed(() =>
     const species = getItem(fish.speciesId)
     return {
       id: fish.id,
-      emoji: species.emoji,
-      name: fish.nickname || species.name,
-      species: species.name,
+      emoji: species?.emoji ?? '?',
+      name: fish.nickname || species?.name || 'Species unavailable',
+      species: species?.name ?? 'Species unavailable',
       health: healthLabel(fish.health),
       // Removing a living fish gives its shop price back; a dead fish gives nothing.
-      refund: fish.health > 0 ? species.price : 0,
+      refund: fish.health > 0 ? (species?.price ?? null) : 0,
     }
   }),
 )
@@ -52,13 +52,15 @@ const fishToRemove = ref(null)
 const isRemoving = ref(false)
 
 async function confirmRemove() {
+  const target = fishToRemove.value
+  if (!target || isRemoving.value) return
   isRemoving.value = true
-  const result = await removeFish(tank.value.id, fishToRemove.value.id)
+  const result = await removeFish(tank.value.id, target.id)
   isRemoving.value = false
   if (!result.ok) notify(result.message, true)
-  else if (result.refund > 0) notify(`${fishToRemove.value.name} was removed: +${result.refund} pearls`)
-  else notify(`${fishToRemove.value.name} was removed.`)
-  fishToRemove.value = null
+  else if (result.refund > 0) notify(`${target.name} was removed: +${result.refund} pearls`)
+  else notify(`${target.name} was removed.`)
+  if (fishToRemove.value === target) fishToRemove.value = null
 }
 
 // What each item does to the water over time (see server/logic/simulation.js).
@@ -74,11 +76,12 @@ const decorList = computed(() =>
     const item = getItem(decoration.itemId)
     return {
       id: decoration.id,
-      emoji: item?.emoji ?? '🪨',
-      name: item?.name ?? decoration.itemId,
-      effect:
-        DECOR_EFFECTS[decoration.itemId] ?? (item?.category === 'plant' ? 'Keeps water cleaner' : ''),
-      refund: item?.price ?? 0,
+      emoji: item?.emoji ?? '?',
+      name: item?.name ?? 'Item unavailable',
+      effect: item
+        ? (DECOR_EFFECTS[decoration.itemId] ?? (item.category === 'plant' ? 'Keeps water cleaner' : ''))
+        : '',
+      refund: item?.price ?? null,
     }
   }),
 )
@@ -87,13 +90,15 @@ const decorList = computed(() =>
 const decorToRemove = ref(null)
 
 async function confirmRemoveDecoration() {
+  const target = decorToRemove.value
+  if (!target || isRemoving.value) return
   isRemoving.value = true
-  const result = await removeDecoration(tank.value.id, decorToRemove.value.id)
+  const result = await removeDecoration(tank.value.id, target.id)
   isRemoving.value = false
   if (!result.ok) notify(result.message, true)
-  else if (result.refund > 0) notify(`${decorToRemove.value.name} was removed: +${result.refund} pearls`)
-  else notify(`${decorToRemove.value.name} was removed.`)
-  decorToRemove.value = null
+  else if (result.refund > 0) notify(`${target.name} was removed: +${result.refund} pearls`)
+  else notify(`${target.name} was removed.`)
+  if (decorToRemove.value === target) decorToRemove.value = null
 }
 
 // Fish die (health 0) after about three days with no feeding or cleaning.
@@ -224,6 +229,7 @@ async function clearDeadFish() {
         <p v-if="fishToRemove.refund > 0">
           You will get <strong>{{ fishToRemove.refund }} pearls</strong> back.
         </p>
+        <p v-else-if="fishToRemove.refund === null" class="text-muted-al">Refund details unavailable.</p>
         <p v-else class="text-muted-al">This fish has died, so there is no refund.</p>
         <div class="d-grid gap-2">
           <button class="btn btn-aqua" type="button" :disabled="isRemoving" @click="confirmRemove">
@@ -243,6 +249,7 @@ async function clearDeadFish() {
         <p v-if="decorToRemove.refund > 0">
           You will get <strong>{{ decorToRemove.refund }} pearls</strong> back.
         </p>
+        <p v-else-if="decorToRemove.refund === null" class="text-muted-al">Refund details unavailable.</p>
         <div class="d-grid gap-2">
           <button class="btn btn-aqua" type="button" :disabled="isRemoving" @click="confirmRemoveDecoration">
             {{ isRemoving ? 'Removing…' : 'Remove item' }}
