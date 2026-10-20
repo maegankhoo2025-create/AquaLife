@@ -1,6 +1,8 @@
 <script setup>
 // Shows an amount of pearls (the game currency) next to the pearl icon.
 // "signed" adds a + in front of positive amounts, for the history page.
+import AppIcon from './AppIcon.vue'
+
 defineProps({
   amount: { type: Number, required: true },
   signed: { type: Boolean, default: false },
@@ -9,7 +11,7 @@ defineProps({
 
 <template>
   <span class="pearl-count">
-    <span class="al-pearl" aria-hidden="true"></span>
+    <AppIcon name="coins" :size="18" />
     <span>{{ signed && amount > 0 ? '+' : '' }}{{ amount.toLocaleString() }}</span>
     <span class="visually-hidden">pearls</span>
   </span>

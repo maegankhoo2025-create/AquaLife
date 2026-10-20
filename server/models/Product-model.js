@@ -17,7 +17,6 @@ const productSchema = new mongoose.Schema(
     category: { type: String, required: true, enum: ['fish', 'plant', 'decor'] },
     name: { type: String, required: true, trim: true },
     sci: { type: String, default: '', trim: true },
-    emoji: { type: String, required: true },
     price: { type: Number, required: true, min: 0 },
     temperament: {
       type: String,

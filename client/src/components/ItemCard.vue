@@ -1,11 +1,9 @@
 <script setup>
-// One shop item in the grid.
-// - With a mouse: hovering zooms the card and cycles its photos; clicking opens the details.
-// - On a touch screen (no hover): the first tap expands the card in place,
-//   and a "View details" button inside opens the details.
+// One shop item: hover cycles photos; click or tap opens its details.
 import { computed, onUnmounted, ref } from 'vue'
 import { checkCompatibility } from '../stores/game'
 import PearlCount from './PearlCount.vue'
+import ItemVisual from './ItemVisual.vue'
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -17,7 +15,6 @@ const compatibility = computed(() => checkCompatibility(props.item, props.tank))
 
 // ---- Photo cycling on hover ----
 const photoIndex = ref(0)
-const photo = computed(() => props.item.photos?.[photoIndex.value])
 let photoTimer
 
 function startCycle() {
@@ -34,14 +31,6 @@ function stopCycle() {
 
 onUnmounted(stopCycle)
 
-// ---- Tap to expand on touch screens ----
-const expanded = ref(false)
-
-function onMainClick() {
-  // "(hover: hover)" is true for a mouse or trackpad and false for a touch screen.
-  if (window.matchMedia('(hover: hover)').matches) emit('open', props.item)
-  else expanded.value = !expanded.value
-}
 </script>
 
 <template>
@@ -51,10 +40,9 @@ function onMainClick() {
     @mouseenter="startCycle"
     @mouseleave="stopCycle"
   >
-    <button class="item-card__main" type="button" :aria-expanded="expanded" @click="onMainClick">
+    <button class="item-card__main" type="button" aria-haspopup="dialog" @click="emit('open', item)">
       <span class="al-ph item-card__photo">
-        <img v-if="photo" :src="photo" :alt="item.name" loading="lazy" />
-        <span v-else aria-hidden="true">{{ item.emoji }}</span>
+        <ItemVisual :item="item" :photo-index="photoIndex" />
       </span>
 
       <span class="d-block fw-bold mt-2">{{ item.name }}</span>
@@ -66,31 +54,12 @@ function onMainClick() {
       </span>
     </button>
 
-    <div v-if="expanded" class="mt-2">
-      <p v-if="item.speciesInfo?.photo" class="small mt-2 mb-0">
-      <a
-        :href="item.speciesInfo.photo.sourceUrl"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="text-muted-al"
-      >
-        {{ item.speciesInfo.photo.attribution }}
-      </a>
-    </p>
-      <p class="small mb-2">{{ item.blurb }}</p>
-      <button class="btn btn-aqua w-100" type="button" @click="emit('open', item)">
-        View details
-      </button>
-    </div>
   </article>
 </template>
 
 <style scoped>
 .item-card {
   padding: 0.75rem;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
 }
 
 .item-card--conflict {
@@ -114,11 +83,12 @@ function onMainClick() {
   width: 100%;
 }
 
-/* Hover effects only on devices that can really hover */
-@media (hover: hover) {
-  .item-card:hover {
-    transform: scale(1.04);
-    box-shadow: var(--al-glow);
-  }
+.item-card .item-card__photo :deep(.fish-icon),
+.item-card .item-card__photo :deep(.aquarium-item-icon) {
+  width: clamp(48px, 5vw, 64px);
+  height: clamp(48px, 5vw, 64px);
+  max-width: none;
+  max-height: none;
 }
+
 </style>

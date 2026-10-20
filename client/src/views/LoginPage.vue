@@ -1,9 +1,11 @@
 <script setup>
 import { computed, ref } from 'vue'
 import LoginApi from '../LoginApi'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import AppIcon from '../components/AppIcon.vue'
 // This lets this page tell Vue Router to open a different page.
 const router = useRouter()
+const route = useRoute()
 
 const message = ref('')
 const messageIsError = ref(false)
@@ -65,14 +67,10 @@ async function handleSubmit() {
     message.value = response.data.message
     messageIsError.value = !response.data.user
 
-    // Signup should return to the login form; successful login should open the app.
-    if (mode.value === 'login' && response.data.user) {
-    await router.push({ name: 'profile' })
-    }
-
-    if (mode.value === 'signup' && response.data.user) {
-      mode.value = 'login'
-      password.value = ''
+    if (response.data.user) {
+      await router.push(typeof route.query.invite === 'string'
+        ? { name: 'friends', query: { invite: route.query.invite } }
+        : { name: 'dashboard' })
     }
   } catch (error) {
     console.error('Unable to contact the server:', error)
@@ -91,8 +89,8 @@ async function handleSubmit() {
   -->
   <main class="container-fluid">
     <div class="row login">
-      <div class="col-12 col-lg-6 login__art al-water">
-        <div class="login__fish" aria-hidden="true">🐠 🐟 🐡</div>
+      <div class="col-12 col-lg-6 login__art">
+        <AppIcon class="login__icon" name="aquarium" :size="80" />
         <p class="login__brand mb-0">AquaLife</p>
         <p class="login__tagline mb-0">Learn fish care by keeping a virtual aquarium.</p>
       </div>
@@ -203,17 +201,17 @@ async function handleSubmit() {
   min-height: clamp(150px, 30vh, 260px);
   padding: 1.5rem;
   text-align: center;
+  background: var(--al-surface-1);
 }
 
-.login__fish {
-  font-size: clamp(2rem, 1.4rem + 3vw, 3.5rem);
+.login__icon {
+  color: var(--al-aqua);
 }
 
 .login__brand {
   font-size: clamp(1.8rem, 1.3rem + 2.5vw, 3rem);
   font-weight: 900;
   color: var(--al-aqua);
-  text-shadow: var(--al-glow);
 }
 
 .login__tagline {

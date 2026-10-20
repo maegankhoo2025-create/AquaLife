@@ -40,11 +40,11 @@ function shuffle(list, seedText) {
 
 // Builds a multiple-choice question: the right answer plus up to 3 different
 // wrong ones, in a shuffled order. Returns null if there are not enough wrong answers.
-function makeQuestion({ id, emoji, question, right, wrongPool, fact, photo = null }) {
+function makeQuestion({ id, icon, question, right, wrongPool, fact, photo = null }) {
   const wrong = shuffle([...new Set(wrongPool)].filter((text) => text && text !== right), id).slice(0, 3)
   if (wrong.length < 3) return null
   const answers = shuffle([right, ...wrong], id + '-answers')
-  return { id, emoji, question, answers, correct: answers.indexOf(right), fact, photo }
+  return { id, icon, question, answers, correct: answers.indexOf(right), fact, photo }
 }
 
 function rangeText(range, unit = '') {
@@ -61,7 +61,7 @@ function temperatureQuestion(fish, all) {
   if (!temp || temp.max - temp.min > MAX_TEMP_RANGE) return null
   return makeQuestion({
     id: 'temp-' + fish.id,
-    emoji: '🌡️',
+    icon: 'thermometer',
     question: `Which water temperature suits a ${displayName(fish)} (${fish.api.canonicalName})?`,
     right: rangeText(temp, '°C'),
     wrongPool: all
@@ -77,7 +77,7 @@ function phQuestion(fish, all) {
   if (!ph) return null
   return makeQuestion({
     id: 'ph-' + fish.id,
-    emoji: '🧪',
+    icon: 'flask',
     question: `Which pH range suits a ${displayName(fish)}?`,
     right: 'pH ' + rangeText(ph),
     wrongPool: all.map((other) => other.api.conditions?.ph).filter(Boolean).map((p) => 'pH ' + rangeText(p)),
@@ -89,7 +89,7 @@ function familyQuestion(fish, all) {
   if (!fish.api.family) return null
   return makeQuestion({
     id: 'family-' + fish.id,
-    emoji: '🧬',
+    icon: 'dna',
     question: `Which family does the ${displayName(fish)} belong to?`,
     right: fish.api.family,
     wrongPool: all.map((other) => other.api.family),
@@ -100,7 +100,7 @@ function familyQuestion(fish, all) {
 function scientificNameQuestion(fish, all) {
   return makeQuestion({
     id: 'sci-' + fish.id,
-    emoji: '🔬',
+    icon: 'microscope',
     question: `What is the scientific name of the ${displayName(fish)}?`,
     right: fish.api.canonicalName,
     wrongPool: all.map((other) => other.api.canonicalName),
@@ -112,7 +112,7 @@ function photoQuestion(fish, all) {
   if (!fish.api.photo) return null
   return makeQuestion({
     id: 'photo-' + fish.id,
-    emoji: '📷',
+    icon: 'camera',
     question: 'Which fish is in this photo?',
     right: displayName(fish),
     wrongPool: all.map(displayName),

@@ -50,13 +50,6 @@ function clearFilters() {
   careLevels.value = []
 }
 
-// Fish that suit the current tank, for the "Recommended" row.
-const recommended = computed(() =>
-  items
-    .filter((item) => item.category === 'fish' && checkCompatibility(item, tank.value).ok)
-    .slice(0, 6),
-)
-
 // ---- Item details and the conflict flow ----
 const selectedItem = ref(null) // item shown in the quick-view dialog
 const pendingConflict = ref(null) // { item, quantity } waiting for the user's decision
@@ -101,23 +94,13 @@ async function buy(item, tankId, quantity, force = false) {
       </div>
     </div>
 
-    <!-- Recommended row: scrolls sideways inside its own box, never the page -->
-    <section v-if="recommended.length > 0" class="mb-4" aria-labelledby="recommended-title">
-      <h2 id="recommended-title" class="h5">Recommended for {{ tank.name }}</h2>
-      <div class="carousel-row">
-        <div v-for="item in recommended" :key="item.id" class="carousel-row__item">
-          <ItemCard :item="item" :tank="tank" @open="selectedItem = $event" />
-        </div>
-      </div>
-    </section>
-
-    <div class="row g-3">
+    <div class="shop-layout">
       <!--
         Filters. "offcanvas-lg" is a Bootstrap class that makes this a normal
         sidebar from 992px up, and a slide-up sheet (opened by the button below)
         on smaller screens.
       -->
-      <div class="col-12 col-lg-3">
+      <div>
         <button
           class="btn btn-ghost w-100 d-lg-none"
           type="button"
@@ -198,11 +181,10 @@ async function buy(item, tankId, quantity, force = false) {
         </div>
       </div>
 
-      <!-- Card grid: 2 per row on phones, 3 from md, 4 from xl -->
-      <section class="col-12 col-lg-9" aria-label="Shop items">
+      <section aria-label="Shop items">
         <p class="small text-muted-al" role="status">{{ filteredItems.length }} items</p>
-        <div class="row g-3">
-          <div v-for="item in filteredItems" :key="item.id" class="col-6 col-md-4 col-xl-3">
+        <div class="shop-grid">
+          <div v-for="item in filteredItems" :key="item.id">
             <ItemCard :item="item" :tank="tank" @open="selectedItem = $event" />
           </div>
         </div>
@@ -225,24 +207,26 @@ async function buy(item, tankId, quantity, force = false) {
 </template>
 
 <style scoped>
+.shop-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .shop-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
 .shop-for {
   min-width: min(100%, 12rem);
-}
-
-.carousel-row {
-  position: relative;
-  display: flex;
-  gap: 1rem;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  /* room so the hover zoom and glow are not cut off by the scrolling box */
-  padding: 0.75rem 0.5rem;
-  margin-inline: -0.5rem;
-}
-
-.carousel-row__item {
-  flex: 0 0 clamp(150px, 42vw, 220px);
-  scroll-snap-align: start;
 }
 
 .filters {
@@ -252,6 +236,10 @@ async function buy(item, tankId, quantity, force = false) {
 
 /* From lg the filters are a sidebar, so the sheet's header button is not needed */
 @media (min-width: 992px) {
+  .shop-layout {
+    grid-template-columns: 15rem minmax(0, 1fr);
+  }
+
   .filters .offcanvas-header {
     display: flex;
     padding: 0 0 0.75rem;

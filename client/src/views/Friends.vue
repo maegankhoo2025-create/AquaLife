@@ -1,0 +1,235 @@
+<script setup>
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import AppIcon from '../components/AppIcon.vue'
+import PearlCount from '../components/PearlCount.vue'
+import TankScene from '../components/TankScene.vue'
+import { formatDate, game } from '../stores/game'
+import {
+  social, loadSocial, loadInvitation, requestFriend, answerRequest, acceptInvitation,
+  visitFriend, giftPearls, remindFriend, commentOnTank, markRead, invitationUrl, copyInvitation,
+} from '../stores/social'
+
+const route = useRoute()
+const router = useRouter()
+const email = ref('')
+const giftAmount = ref(10)
+const giftMessage = ref('')
+const comment = ref('')
+const selectedTankId = ref('')
+const inviteToken = computed(() => typeof route.query.invite === 'string' ? route.query.invite : '')
+const shareUrl = computed(() => invitationUrl())
+const shareText = 'Join me on AquaLife and visit my aquarium. Open this invitation to accept my friend request.'
+const whatsappUrl = computed(() => `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl.value}`)}`)
+const telegramUrl = computed(() => `https://t.me/share/url?url=${encodeURIComponent(shareUrl.value)}&text=${encodeURIComponent(shareText)}`)
+const invitedFriend = computed(() => social.friends.some((entry) => entry.user.id === social.inviter?.id))
+const selectedTank = computed(() => social.visit?.tanks.find((tank) => tank.id === selectedTankId.value))
+const tankComments = computed(() => social.visit?.comments.filter((entry) => String(entry.tank) === selectedTankId.value) || [])
+const unreadCount = computed(() => social.inbox.filter((entry) => !entry.readAt).length)
+
+onMounted(loadSocial)
+watch(inviteToken, (token) => loadInvitation(token), { immediate: true })
+
+async function addFriend() {
+  if (await requestFriend(email.value)) email.value = ''
+}
+
+async function acceptLink() {
+  if (await acceptInvitation(inviteToken.value)) {
+    await router.replace({ query: { ...route.query, invite: undefined } })
+  }
+}
+
+async function openVisit(id) {
+  comment.value = ''
+  giftMessage.value = ''
+  if (await visitFriend(id)) selectedTankId.value = social.visit.tanks[0]?.id || ''
+}
+
+async function sendGift() {
+  if (await giftPearls(social.visit.friend.id, giftAmount.value, giftMessage.value)) giftMessage.value = ''
+}
+
+async function sendComment() {
+  if (await commentOnTank(social.visit.friend.id, selectedTankId.value, comment.value)) comment.value = ''
+}
+</script>
+
+<template>
+  <main class="container al-page">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+      <div>
+        <h1 class="al-title mb-1">Friends</h1>
+        <p class="text-muted-al mb-0">Share your aquarium, visit friends and help each other care for fish.</p>
+      </div>
+      <button type="button" class="btn btn-ghost" :disabled="social.loading || social.busy" @click="loadSocial">
+        {{ social.loading ? 'Refreshing…' : 'Refresh friends and inbox' }}
+      </button>
+    </div>
+
+    <p v-if="social.error" class="al-card text-danger" role="alert">{{ social.error }}</p>
+
+    <section v-if="inviteToken" class="al-card mb-3" aria-labelledby="invitation-heading">
+      <h2 id="invitation-heading" class="h5">Friend invitation</h2>
+      <p v-if="social.inviteError" class="mb-0" role="alert">{{ social.inviteError }}</p>
+      <template v-else-if="social.inviter">
+        <p v-if="social.inviter.id === game.user.id" class="mb-0">This is your invitation. Share the link below with someone you would like to add.</p>
+        <p v-else-if="invitedFriend" class="mb-0">You and {{ social.inviter.name }} are already friends.</p>
+        <template v-else>
+          <p>{{ social.inviter.name }} has invited you to become friends. Accepting lets you visit each other’s tanks, send pearl gifts, reminders and comments.</p>
+          <button type="button" class="btn btn-aqua" :disabled="social.busy" @click="acceptLink">Accept invitation</button>
+        </template>
+      </template>
+      <p v-else class="mb-0" role="status">Loading invitation…</p>
+    </section>
+
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-lg-6">
+        <section class="al-card h-100" aria-labelledby="add-friend-heading">
+          <h2 id="add-friend-heading" class="h5"><AppIcon name="user" /> Add a friend</h2>
+          <p class="small text-muted-al">Enter their exact account email. They must accept before you can visit or interact.</p>
+          <form class="d-flex flex-wrap gap-2" @submit.prevent="addFriend">
+            <label class="w-100" for="friend-email">Friend’s email</label>
+            <input id="friend-email" v-model="email" type="email" class="form-control friend-email" maxlength="254" required autocomplete="off" />
+            <button type="submit" class="btn btn-aqua" :disabled="social.busy">Send request</button>
+          </form>
+          <div v-if="social.outgoing.length" class="mt-3">
+            <h3 class="h6">Awaiting a response</h3>
+            <ul class="mb-0">
+              <li v-for="entry in social.outgoing" :key="entry.id">{{ entry.user.name }} — request pending</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+      <div class="col-12 col-lg-6">
+        <section class="al-card h-100" aria-labelledby="share-heading">
+          <h2 id="share-heading" class="h5">Invite with a link</h2>
+          <p class="small text-muted-al">Anyone with your link can explicitly accept your invitation. Share it only with people you want to add.</p>
+          <template v-if="shareUrl">
+            <label for="invitation-link" class="small mb-1">Your invitation link</label>
+            <input id="invitation-link" class="form-control mb-2" :value="shareUrl" readonly @focus="$event.target.select()" />
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-ghost" @click="copyInvitation">Copy link</button>
+              <a class="btn btn-ghost" :href="whatsappUrl" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+              <a class="btn btn-ghost" :href="telegramUrl" target="_blank" rel="noopener noreferrer">Telegram</a>
+            </div>
+          </template>
+          <p v-else class="mb-0 text-muted-al">{{ social.loading ? 'Loading your invitation…' : 'Refresh to load your invitation link.' }}</p>
+        </section>
+      </div>
+    </div>
+
+    <section class="al-card mb-3" aria-labelledby="requests-heading">
+      <h2 id="requests-heading" class="h5">Friend requests <span class="small text-muted-al">{{ social.incoming.length }}</span></h2>
+      <p v-if="!social.incoming.length" class="text-muted-al mb-0">No incoming requests.</p>
+      <ul v-else class="al-list mb-0">
+        <li v-for="entry in social.incoming" :key="entry.id" class="d-flex flex-wrap align-items-center gap-2">
+          <span class="al-grow">{{ entry.user.name }} wants to be your friend.</span>
+          <button type="button" class="btn btn-aqua" :disabled="social.busy" @click="answerRequest(entry.id, 'accept')">Accept</button>
+          <button type="button" class="btn btn-ghost" :disabled="social.busy" @click="answerRequest(entry.id, 'reject')">Reject</button>
+        </li>
+      </ul>
+    </section>
+
+    <section class="al-card mb-3" aria-labelledby="friends-heading">
+      <h2 id="friends-heading" class="h5">Your friends <span class="small text-muted-al">{{ social.friends.length }}</span></h2>
+      <p v-if="!social.friends.length" class="text-muted-al mb-0">No friends yet. Send a request or share your invitation above.</p>
+      <ul v-else class="al-list mb-0">
+        <li v-for="entry in social.friends" :key="entry.id" class="d-flex flex-wrap align-items-center gap-2">
+          <span class="al-grow"><AppIcon name="user" /> {{ entry.user.name }}</span>
+          <button type="button" class="btn btn-ghost" :disabled="social.visiting || social.busy" @click="openVisit(entry.user.id)">
+            Visit tanks <AppIcon name="arrow-right" :size="16" />
+          </button>
+        </li>
+      </ul>
+    </section>
+
+    <p v-if="social.visiting" class="al-card" role="status">Loading your friend’s aquarium…</p>
+    <section v-else-if="social.visit" class="al-card mb-3" aria-labelledby="visit-heading">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+        <h2 id="visit-heading" class="h4 mb-0">{{ social.visit.friend.name }}’s aquarium</h2>
+        <button type="button" class="btn btn-ghost" :disabled="social.busy" @click="social.visit = null">Close visit</button>
+      </div>
+      <p class="small text-muted-al">Read-only visit. Only the owner can feed fish, change targets or arrange this aquarium.</p>
+      <template v-if="social.visit.tanks.length">
+        <label for="friend-tank" class="mb-1">Choose a tank</label>
+        <select id="friend-tank" v-model="selectedTankId" class="form-select mb-3" :disabled="social.busy" @change="comment = ''">
+          <option v-for="tank in social.visit.tanks" :key="tank.id" :value="tank.id">{{ tank.name }}</option>
+        </select>
+        <template v-if="selectedTank">
+          <TankScene :tank="selectedTank" :interactive="false" />
+          <p class="small text-muted-al mt-2">
+            {{ selectedTank.fish.length }} fish · {{ selectedTank.conditions.temperature }}°C · pH {{ selectedTank.conditions.ph }} · Water quality {{ selectedTank.conditions.waterQuality }}%
+          </p>
+          <button type="button" class="btn btn-ghost mb-3" :disabled="social.busy" @click="remindFriend(social.visit.friend.id, selectedTank.id)">
+            <AppIcon name="food" /> Send feed reminder
+          </button>
+          <p class="small text-muted-al">Reminders appear in your friend’s AquaLife inbox; they do not feed the fish or send an external notification.</p>
+          <h3 class="h5">Tank comments</h3>
+          <p v-if="!tankComments.length" class="text-muted-al small">No comments on this tank yet.</p>
+          <ul v-else class="comment-list">
+            <li v-for="entry in tankComments" :key="entry._id">
+              <strong>{{ entry.sender?.name || 'Former aquarist' }}</strong>
+              <span class="small text-muted-al"> · {{ formatDate(entry.createdAt) }}</span>
+              <p class="message-content mb-0">{{ entry.content }}</p>
+            </li>
+          </ul>
+          <form class="mb-4" @submit.prevent="sendComment">
+            <label for="tank-comment" class="mb-1">Leave a comment</label>
+            <textarea id="tank-comment" v-model="comment" class="form-control mb-2" rows="3" maxlength="500" required :disabled="social.busy"></textarea>
+            <div class="d-flex align-items-center gap-3">
+              <button type="submit" class="btn btn-aqua" :disabled="social.busy || !comment.trim()">Post comment</button>
+              <span class="small text-muted-al">{{ comment.length }}/500</span>
+            </div>
+          </form>
+        </template>
+      </template>
+      <p v-else class="text-muted-al">Your friend has no tanks yet.</p>
+      <section class="gift-panel" aria-labelledby="gift-heading">
+        <h3 id="gift-heading" class="h5">Gift pearls to {{ social.visit.friend.name }}</h3>
+        <p class="small">Your balance: <PearlCount :amount="game.pearls" />. Gifts transfer real pearls from your balance.</p>
+        <form @submit.prevent="sendGift">
+          <label for="gift-amount" class="mb-1">Pearls</label>
+          <input id="gift-amount" v-model.number="giftAmount" type="number" min="1" :max="Math.min(game.pearls, 1000000)" step="1" required class="form-control gift-amount mb-2" :disabled="social.busy" />
+          <label for="gift-message" class="mb-1">Message (optional)</label>
+          <textarea id="gift-message" v-model="giftMessage" maxlength="500" rows="2" class="form-control mb-2" :disabled="social.busy"></textarea>
+          <button type="submit" class="btn btn-aqua" :disabled="social.busy || game.pearls < 1">Send pearl gift</button>
+        </form>
+      </section>
+    </section>
+
+    <section class="al-card" aria-labelledby="inbox-heading">
+      <h2 id="inbox-heading" class="h5">Your inbox <span class="small text-muted-al">{{ unreadCount }} unread</span></h2>
+      <p class="small text-muted-al">Received pearl gifts, tank comments and feed reminders. Refresh above to check for new messages and update your balance.</p>
+      <p v-if="!social.inbox.length" class="text-muted-al mb-0">No messages yet.</p>
+      <ul v-else class="inbox-list">
+        <li v-for="entry in social.inbox" :key="entry._id" :class="{ 'inbox-unread': !entry.readAt }">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h3 class="h6 mb-0">
+              {{ entry.sender?.name || 'Former aquarist' }}
+              <template v-if="entry.type === 'gift'"> sent you <PearlCount :amount="entry.amount" /></template>
+              <template v-else-if="entry.type === 'comment'"> commented on {{ entry.tank?.name || 'a removed tank' }}</template>
+              <template v-else> sent a feed reminder for {{ entry.tank?.name || 'a removed tank' }}</template>
+            </h3>
+            <span class="small text-muted-al">{{ formatDate(entry.createdAt) }}</span>
+          </div>
+          <p v-if="entry.content" class="message-content my-2">{{ entry.content }}</p>
+          <button v-if="!entry.readAt" type="button" class="btn btn-ghost btn-sm mt-1" @click="markRead(entry._id)">Mark as read</button>
+          <span v-else class="small text-muted-al">Read</span>
+        </li>
+      </ul>
+    </section>
+  </main>
+</template>
+
+<style scoped>
+.friend-email { flex: 1 1 220px; width: auto; }
+.gift-amount { max-width: 200px; }
+.gift-panel { border-top: 1px solid var(--al-border); padding-top: 1.25rem; }
+.comment-list, .inbox-list { list-style: none; padding: 0; margin: 0; }
+.comment-list li, .inbox-list li { padding: 1rem 0; border-bottom: 1px solid var(--al-border); }
+.comment-list { margin-bottom: 1rem; }
+.inbox-list li:last-child { border-bottom: 0; padding-bottom: 0; }
+.inbox-unread { border-left: 3px solid var(--al-aqua); padding-left: 1rem !important; }
+.message-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>

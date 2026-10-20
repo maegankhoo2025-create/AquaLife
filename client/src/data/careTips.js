@@ -9,7 +9,7 @@ export const CARE_TIPS = {
     raise: {
       title: 'How to raise the temperature',
       steps: [
-        'Use an adjustable aquarium heater with a built-in thermostat. A common rule of thumb is about 1 watt per litre of water.',
+        'Use an adjustable aquarium heater with a thermostat, sized for the tank volume and room temperature using the manufacturer’s guidance.',
         'Place the heater near the filter outflow so the warm water spreads evenly through the tank.',
         'Keep a lid on the tank to hold in heat, and keep the tank away from air-conditioner vents and draughty windows.',
       ],
@@ -17,10 +17,10 @@ export const CARE_TIPS = {
     lower: {
       title: 'How to lower the temperature',
       steps: [
-        'Turn the heater down, or unplug it on hot days.',
+        'Check the thermometer and heater setting first; adjust the thermostat gradually rather than making abrupt changes.',
         'Move the tank out of direct sunlight, and switch the tank light off for a few hours.',
         'Point a small fan across the water surface. Evaporation cools the water by a degree or two (top up the lost water with dechlorinated water).',
-        'Float a sealed bottle of cold water in the tank. Never put ice straight into the water.',
+        'Improve surface aeration in warm water. Avoid adding ice or very cold water, which can cause sudden local temperature changes.',
         'For tanks that run hot all year, an aquarium chiller keeps the temperature steady.',
       ],
     },
@@ -35,8 +35,8 @@ export const CARE_TIPS = {
       steps: [
         'Add crushed coral or aragonite to the filter or mix it into the gravel. It dissolves slowly and lifts pH gently.',
         'Use rocks such as limestone or Texas holey rock as decoration.',
-        'Do regular partial water changes if your tap water has a higher pH than the tank.',
-        'Add a pH buffer made for aquariums, following the dose on the label.',
+        'Test the replacement water and the tank’s carbonate hardness (KH) before using water changes to alter pH.',
+        'Do not chase a pH number with repeated chemical doses. Get species-specific advice if the water is unsuitable.',
       ],
     },
     lower: {
@@ -48,7 +48,7 @@ export const CARE_TIPS = {
         'Remove any limestone, shells or coral decorations, which push pH up.',
       ],
     },
-    check: 'Test pH about once a week with a liquid test kit, which is more reliable than paper strips. Test more often after changing anything.',
+    check: 'Test pH about once a week with a liquid test kit. Also measure KH, which controls buffering: driftwood, leaves and coral may act differently depending on your water. Test more often after changing anything.',
     caution: 'A stable pH matters more than a perfect number. Change it gradually over several days; a fast swing harms fish more than a slightly-off value.',
   },
 
@@ -73,7 +73,7 @@ export const CARE_TIPS = {
         'Adding fish to a new tank before the filter has been cycled (built up its bacteria), which takes several weeks.',
       ],
     },
-    check: 'Test ammonia, nitrite and nitrate weekly with a liquid test kit. Ammonia and nitrite should read 0; keep nitrate below about 40 ppm.',
+    check: 'A real tank has no single water-quality percentage. Test ammonia, nitrite and nitrate with a liquid kit: ammonia and nitrite should be 0, and nitrate needs a species-appropriate limit. During fishless cycling, test regularly and establish the biological filter before adding fish.',
     caution: 'Never replace all the water at once or scrub everything clean. That wipes out the helpful bacteria and can crash the tank.',
   },
 }

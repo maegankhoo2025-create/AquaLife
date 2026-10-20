@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   CONDITION_LIMITS,
+  createTank,
   currentTank,
   doTask,
   game,
@@ -14,16 +15,72 @@ import {
   removeDecoration,
   removeFish,
   safeRange,
-  setCondition,
+  setTarget,
 } from '../stores/game'
 import AlModal from '../components/AlModal.vue'
 import ConditionSlider from '../components/ConditionSlider.vue'
 import { CARE_TIPS } from '../data/careTips'
 import TankSwiper from '../components/TankSwiper.vue'
+import AppIcon from '../components/AppIcon.vue'
+import ItemVisual from '../components/ItemVisual.vue'
 
 const tank = currentTank
 const safe = computed(() => safeRange(tank.value))
 const tasks = computed(() => getTasks())
+const showCreateTank = ref(false)
+const tankName = ref('')
+const creatingTank = ref(false)
+const createError = ref('')
+
+async function submitTank() {
+  if (creatingTank.value) return
+  creatingTank.value = true
+  createError.value = ''
+  const result = await createTank(tankName.value)
+  creatingTank.value = false
+  if (!result.ok) createError.value = result.message
+  else {
+    showCreateTank.value = false
+    tankName.value = ''
+    notify('Tank created and selected.')
+  }
+}
+
+function targetReached(key) {
+  const actual = tank.value.conditions[key]
+  const target = tank.value.targets[key]
+  return key === 'waterQuality' ? actual >= target : Math.abs(actual - target) < 0.005
+}
+
+function careMethod(key) {
+  const actual = tank.value.conditions[key]
+  const target = tank.value.targets[key]
+  if (targetReached(key)) {
+    return key === 'waterQuality'
+      ? 'Target met or exceeded. A water change will not deliberately dirty clean water; monitor waste and test regularly.'
+      : 'Target reached. Keep monitoring the actual reading; moving a target never changes the water by itself.'
+  }
+  if (key === 'temperature') {
+    return `Next: use the ${actual < target ? 'heater' : 'cooler'} step. Each care action moves actual temperature by up to 1°C toward the target. Real heaters and coolers need time; avoid sudden changes.`
+  }
+  if (key === 'waterQuality') {
+    return 'Next: a partial water change raises actual water quality by up to 25 points toward the target. In a real tank, use conditioned, temperature-matched water and check ammonia, nitrite and nitrate.'
+  }
+  const lowering = actual > target
+  const itemIds = lowering ? ['driftwood', 'almond-leaves'] : ['crushed-coral']
+  const hasMethod = tank.value.decorations.some((item) => itemIds.includes(item.itemId))
+  const method = lowering
+    ? 'Driftwood lowers pH by 0.02 per piece/hour; almond leaves by 0.03, down to pH 6.5.'
+    : 'Crushed coral raises pH by 0.02 per piece/hour, up to pH 8.'
+  const beyondLimit = lowering ? target < 6.5 : target > 8
+  return `${hasMethod ? 'Installed natural items work over time.' : `Next: add ${lowering ? 'driftwood or almond leaves' : 'crushed coral'} from the shop.`} ${method} Up to 3 pieces of each count; effects stop at the target or item limit. ${beyondLimit ? 'This target is beyond those items’ physical limit; choose an achievable safe target. ' : ''}Neutral decorations and plants do not adjust pH. Natural changes take hours to days; re-open the tank to see elapsed-time changes.`
+}
+
+function taskLabel(task) {
+  if (task.id === 'temp') return 'Heater / cooler step'
+  if (task.id === 'clean') return 'Partial water change'
+  return task.label
+}
 
 // Each fish in the tank together with its species details, for the fish list.
 const fishList = computed(() =>
@@ -31,7 +88,7 @@ const fishList = computed(() =>
     const species = getItem(fish.speciesId)
     return {
       id: fish.id,
-      emoji: species?.emoji ?? '?',
+      item: species || { category: 'fish' },
       name: fish.nickname || species?.name || 'Species unavailable',
       species: species?.name ?? 'Species unavailable',
       health: healthLabel(fish.health),
@@ -65,9 +122,9 @@ async function confirmRemove() {
 
 // What each item does to the water over time (see server/logic/simulation.js).
 const DECOR_EFFECTS = {
-  driftwood: 'Lowers pH slowly',
-  'almond-leaves': 'Lowers pH',
-  'crushed-coral': 'Raises pH',
+  driftwood: 'Lowers pH 0.02 per piece/hour; minimum 6.5',
+  'almond-leaves': 'Lowers pH 0.03 per piece/hour; minimum 6.5',
+  'crushed-coral': 'Raises pH 0.02 per piece/hour; maximum 8',
 }
 
 // Each plant or decoration in the tank, for the decorations list.
@@ -76,7 +133,7 @@ const decorList = computed(() =>
     const item = getItem(decoration.itemId)
     return {
       id: decoration.id,
-      emoji: item?.emoji ?? '?',
+      item,
       name: item?.name ?? 'Item unavailable',
       effect: item
         ? (DECOR_EFFECTS[decoration.itemId] ?? (item.category === 'plant' ? 'Keeps water cleaner' : ''))
@@ -115,7 +172,15 @@ async function clearDeadFish() {
 
 <template>
   <main class="container al-page">
-    <h1 class="al-title mb-3">{{ tank.name }}</h1>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+      <h1 class="al-title">My aquarium</h1>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-ghost" type="button" @click="showCreateTank = true">Create tank</button>
+        <RouterLink class="btn btn-aqua" :to="{ name: 'browse' }">
+          <AppIcon name="plus" /> Add fish or decorations
+        </RouterLink>
+      </div>
+    </div>
 
     <div class="row g-3">
       <!-- Tank on the left (full width below lg) -->
@@ -125,10 +190,13 @@ async function clearDeadFish() {
         <div class="row g-2">
           <div v-for="task in tasks" :key="task.id" class="col-12 col-sm-4">
             <button class="btn btn-ghost w-100 h-100" type="button" @click="runTask(task)">
-              <span aria-hidden="true">{{ task.emoji }}</span>
-              {{ task.label }}
+              <AppIcon :name="task.icon" />
+              {{ taskLabel(task) }}
               <span class="d-block small text-muted-al">
                 {{ task.done ? 'Rewarded today' : `+${task.reward} pearls` }}
+              </span>
+              <span v-if="task.id !== 'feed'" class="d-block small text-muted-al">
+                {{ targetReached(task.id === 'temp' ? 'temperature' : 'waterQuality') ? 'Target reached; monitor conditions' : task.id === 'temp' ? 'Up to 1°C toward target' : 'Up to +25 quality toward target' }}
               </span>
             </button>
           </div>
@@ -139,6 +207,8 @@ async function clearDeadFish() {
       <aside class="col-12 col-lg-4" aria-label="Tank conditions">
         <div class="al-card mb-3">
           <h2 class="h5">Conditions</h2>
+          <p class="small text-muted-al">Actual readings describe your water now. Sliders save targets only; use care actions or natural items to change the water.</p>
+          <p v-if="!tank.fish.some((fish) => fish.health > 0)" class="small text-muted-al">No living fish: the displayed temperature and pH ranges are game limits, not a species recommendation. Check a fish’s requirements before buying.</p>
           <div class="d-grid gap-3">
             <ConditionSlider
               v-for="(limits, key) in CONDITION_LIMITS"
@@ -151,14 +221,18 @@ async function clearDeadFish() {
               :unit="limits.unit"
               :safe="safe[key]"
               :tips="CARE_TIPS[key]"
-              :model-value="tank.conditions[key]"
-              @update:model-value="setCondition(tank.id, key, $event)"
+              :actual="tank.conditions[key]"
+              :model-value="tank.targets[key]"
+              :method="careMethod(key)"
+              :reached="targetReached(key)"
+              @update:model-value="setTarget(tank.id, key, $event)"
             />
           </div>
         </div>
 
         <div class="al-card">
           <h2 class="h5">Fish ({{ fishList.length }})</h2>
+          <p v-if="fishList.length" class="small text-muted-al">Tap a fish in the aquarium to edit its nickname and care notes.</p>
           <p v-if="fishList.length === 0" class="text-muted-al mb-0">
             This tank is empty. Add your first fish from the shop.
           </p>
@@ -171,10 +245,10 @@ async function clearDeadFish() {
           </div>
           <ul v-if="fishList.length > 0" class="al-list">
             <li v-for="fish in fishList" :key="fish.id">
-              <span aria-hidden="true">{{ fish.emoji }}</span>
+              <span class="tank-item-art"><ItemVisual :item="fish.item" /></span>
               <span class="al-grow">
                 {{ fish.name }}
-                <span class="d-block small text-muted-al">{{ fish.species }}</span>
+                <span v-if="fish.name !== fish.species" class="d-block small text-muted-al">{{ fish.species }}</span>
               </span>
               <span class="al-chip" :class="fish.health.chip">{{ fish.health.text }}</span>
               <button
@@ -197,7 +271,7 @@ async function clearDeadFish() {
           </p>
           <ul v-else class="al-list">
             <li v-for="decor in decorList" :key="decor.id">
-              <span aria-hidden="true">{{ decor.emoji }}</span>
+              <span class="tank-item-art"><ItemVisual :item="decor.item" /></span>
               <span class="al-grow">
                 {{ decor.name }}
                 <span v-if="decor.effect" class="d-block small text-muted-al">{{ decor.effect }}</span>
@@ -216,9 +290,18 @@ async function clearDeadFish() {
       </aside>
     </div>
 
-    <RouterLink class="al-fab" :to="{ name: 'browse' }" aria-label="Add fish or decorations">
-      +
-    </RouterLink>
+
+    <AlModal :open="showCreateTank" title="Create a tank" @close="showCreateTank = false">
+      <form @submit.prevent="submitTank">
+        <label for="new-tank-name" class="form-label">Tank name</label>
+        <input id="new-tank-name" v-model="tankName" class="form-control mb-3" type="text" required />
+        <p class="small text-muted-al">A new tank starts empty. Check its actual readings and species requirements before adding fish.</p>
+        <p v-if="createError" class="small" role="alert">{{ createError }}</p>
+        <button class="btn btn-aqua" type="submit" :disabled="creatingTank || !tankName.trim()">
+          {{ creatingTank ? 'Creating…' : 'Create and select tank' }}
+        </button>
+      </form>
+    </AlModal>
 
     <!-- Ask before removing: the fish is deleted from the database -->
     <AlModal :open="fishToRemove !== null" title="Remove this fish?" @close="fishToRemove = null">
@@ -260,3 +343,13 @@ async function clearDeadFish() {
     </AlModal>
   </main>
 </template>
+
+<style scoped>
+.tank-item-art {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--al-surface-2);
+}
+</style>

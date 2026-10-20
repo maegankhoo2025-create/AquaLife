@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema(
     // Gamification. Level is worked out from xp, so it is not stored.
     pearls: { type: Number, default: 200, min: 0 },
     xp: { type: Number, default: 0, min: 0 },
+    inviteToken: { type: String, unique: true, sparse: true, select: false },
 
     // Daily care tasks already rewarded on "day" (YYYY-MM-DD)
     tasks: {

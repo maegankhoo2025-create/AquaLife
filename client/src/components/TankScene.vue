@@ -6,9 +6,11 @@
 //   - tapping a fish opens a card about it
 //   - the Decorate button lets the user drag decorations to a new spot
 // On the dashboard it is a preview only, so "interactive" is off.
-import { computed, ref } from 'vue'
-import { getItem, healthLabel, moveDecoration, renameFish, tankEffect } from '../stores/game'
+import { computed, ref, watch } from 'vue'
+import { getItem, healthLabel, moveDecoration, saveFish, tankEffect } from '../stores/game'
 import AlModal from './AlModal.vue'
+import AppIcon from './AppIcon.vue'
+import ItemVisual from './ItemVisual.vue'
 
 const props = defineProps({
   tank: { type: Object, required: true },
@@ -28,6 +30,7 @@ const fishInScene = computed(() =>
     return {
       fish,
       species,
+      visual: species || { category: 'fish', name: 'Species unavailable' },
       dead,
       name: fish.nickname || species?.name || 'Species unavailable',
       style: {
@@ -46,6 +49,28 @@ const selectedFishId = ref(null)
 const selected = computed(() =>
   fishInScene.value.find((entry) => entry.fish.id === selectedFishId.value),
 )
+const nickname = ref('')
+const notes = ref('')
+const savingFish = ref(false)
+const fishMessage = ref('')
+
+watch(selectedFishId, () => {
+  nickname.value = selected.value?.fish.nickname || ''
+  notes.value = selected.value?.fish.notes || ''
+  fishMessage.value = ''
+})
+
+async function saveDetails() {
+  if (!selected.value || savingFish.value) return
+  const fishId = selected.value.fish.id
+  savingFish.value = true
+  const result = await saveFish(props.tank.id, fishId, {
+    nickname: nickname.value.trim(),
+    notes: notes.value,
+  })
+  savingFish.value = false
+  if (selectedFishId.value === fishId) fishMessage.value = result.ok ? 'Fish details saved.' : result.message
+}
 
 // ---- Care animations ----
 // The store sets tankEffect when a daily task is done (see doTask in game.js).
@@ -59,12 +84,6 @@ const pellets = Array.from({ length: 12 }, (_, index) => ({
   '--fall-depth': `${55 + ((index * 17) % 30)}%`,
 }))
 
-// Sparkles left behind by the sponge, appearing from left to right.
-const sparkles = Array.from({ length: 8 }, (_, index) => ({
-  left: `${10 + index * 11}%`,
-  top: `${25 + ((index * 37) % 50)}%`,
-  '--spark-delay': `${0.25 + index * 0.2}s`,
-}))
 
 // ---- Decorations ----
 const scene = ref(null) // the tank element, used to measure its size
@@ -76,7 +95,7 @@ const decorations = computed(() =>
     const item = getItem(decoration.itemId)
     return {
       decoration,
-      emoji: item?.emoji ?? '?',
+      item,
       name: item?.name ?? 'Item unavailable',
       // zIndex: items lower in the tank are drawn in front of items higher up
       style: { left: `${decoration.x}%`, top: `${decoration.y}%`, zIndex: decoration.y },
@@ -117,6 +136,20 @@ function onDecorationKey(event, decoration) {
 </script>
 
 <template>
+  <div v-if="interactive" class="scene__tools">
+    <button
+      class="btn"
+      :class="decorating ? 'btn-aqua' : 'btn-ghost'"
+      type="button"
+      :aria-pressed="decorating"
+      @click="decorating = !decorating"
+    >
+      {{ decorating ? 'Done decorating' : 'Decorate' }}
+    </button>
+    <p v-if="decorating" class="scene__hint small text-muted-al" role="status">
+      {{ decorations.length ? 'Drag an item or use its arrow keys to move it.' : 'Buy decorations in the shop to arrange your tank.' }}
+    </p>
+  </div>
   <div
     ref="scene"
     class="scene al-water"
@@ -137,12 +170,12 @@ function onDecorationKey(event, decoration) {
         class="swim__fish"
         :type="interactive ? 'button' : null"
         :aria-label="
-          interactive ? `${entry.name}, ${entry.species?.name ?? 'Species unavailable'}${entry.dead ? ', dead' : ''}` : null
+          interactive ? `${entry.name}${entry.dead ? ', dead' : ''}` : null
         "
         :aria-hidden="interactive ? null : 'true'"
         @click="selectedFishId = entry.fish.id"
       >
-        <span class="swim__bob">{{ entry.species?.emoji ?? '?' }}</span>
+        <span class="swim__bob"><ItemVisual :item="entry.visual" /></span>
       </component>
     </div>
 
@@ -163,7 +196,7 @@ function onDecorationKey(event, decoration) {
       @pointercancel="endDrag"
       @keydown="onDecorationKey($event, entry.decoration)"
     >
-      {{ entry.emoji }}
+      <ItemVisual :item="entry.item" />
     </button>
 
     <div class="scene__floor" aria-hidden="true"></div>
@@ -175,42 +208,15 @@ function onDecorationKey(event, decoration) {
       </template>
 
       <template v-else-if="effect === 'clean'">
-        <span class="fx__sponge">🧽</span>
-        <span v-for="(sparkle, index) in sparkles" :key="index" class="fx__sparkle" :style="sparkle">
-          ✨
-        </span>
+        <span class="fx__bubbles"><AppIcon name="clean" :size="40" /></span>
       </template>
 
       <template v-else>
-        <span class="fx__glow"></span>
-        <span class="fx__thermo">🌡️ {{ tank.conditions.temperature }}°C</span>
+        <span class="fx__thermo"><AppIcon name="thermometer" /> {{ tank.conditions.temperature }}°C</span>
       </template>
     </div>
 
-    <div class="scene__label">
-      <span class="al-chip">{{ tank.name }}</span>
-      <span class="al-chip al-chip--aqua">{{ tank.fish.length }} fish</span>
-    </div>
 
-    <template v-if="interactive">
-      <button
-        class="btn scene__decorate"
-        :class="decorating ? 'btn-aqua' : 'btn-ghost'"
-        type="button"
-        :aria-pressed="decorating"
-        @click="decorating = !decorating"
-      >
-        {{ decorating ? 'Done' : 'Decorate' }}
-      </button>
-
-      <p v-if="decorating" class="scene__hint al-chip" role="status">
-        {{
-          decorations.length > 0
-            ? 'Drag an item to move it'
-            : 'No decorations yet. Buy some in the shop.'
-        }}
-      </p>
-    </template>
 
     <!-- Fish card -->
     <AlModal
@@ -221,7 +227,7 @@ function onDecorationKey(event, decoration) {
     >
       <template v-if="selected">
         <div class="d-flex align-items-center gap-3 mb-3">
-          <div class="al-ph fish-card__photo" aria-hidden="true">{{ selected.species?.emoji ?? '?' }}</div>
+          <div class="al-ph fish-card__photo"><ItemVisual :item="selected.visual" /></div>
           <div class="al-grow">
             <p class="fw-bold mb-0">{{ selected.species?.name ?? 'Species unavailable' }}</p>
             <p class="small fst-italic text-muted-al mb-1">{{ selected.species?.sci ?? 'Scientific name unavailable' }}</p>
@@ -256,16 +262,38 @@ function onDecorationKey(event, decoration) {
           </div>
         </dl>
 
-        <label :for="`nickname-${selected.fish.id}`" class="form-label">Nickname</label>
-        <input
-          :id="`nickname-${selected.fish.id}`"
-          class="form-control"
-          type="text"
-          maxlength="20"
-          :placeholder="selected.species?.name ?? 'Species unavailable'"
-          :value="selected.fish.nickname"
-          @change="renameFish(tank.id, selected.fish.id, $event.target.value)"
-        />
+        <p v-if="selected.species?.speciesInfo?.photo" class="small text-muted-al">
+          Photo:
+          <a :href="selected.species.speciesInfo.photo.sourceUrl" target="_blank" rel="noopener noreferrer">
+            {{ selected.species.speciesInfo.photo.attribution }}
+          </a>
+        </p>
+
+        <form @submit.prevent="saveDetails">
+          <label :for="`nickname-${selected.fish.id}`" class="form-label">Nickname</label>
+          <input
+            :id="`nickname-${selected.fish.id}`"
+            v-model="nickname"
+            class="form-control mb-3"
+            type="text"
+            maxlength="20"
+            :placeholder="selected.species?.name ?? 'Species unavailable'"
+          />
+          <label :for="`notes-${selected.fish.id}`" class="form-label">Care notes</label>
+          <textarea
+            :id="`notes-${selected.fish.id}`"
+            v-model="notes"
+            class="form-control"
+            rows="4"
+            maxlength="2000"
+            placeholder="Record feeding, behaviour or observations about this fish."
+          ></textarea>
+          <p class="small text-muted-al">{{ notes.length }} / 2000 characters</p>
+          <button class="btn btn-aqua" type="submit" :disabled="savingFish">
+            {{ savingFish ? 'Saving…' : 'Save fish details' }}
+          </button>
+          <p v-if="fishMessage" class="small mt-2 mb-0" role="status">{{ fishMessage }}</p>
+        </form>
       </template>
     </AlModal>
   </div>
@@ -273,7 +301,7 @@ function onDecorationKey(event, decoration) {
 
 <style scoped>
 .scene {
-  --fish-size: clamp(1.4rem, 1rem + 2vw, 2.2rem);
+  --fish-size: clamp(44px, 5vw, 64px);
   position: relative;
   /* clamp(): never shorter than 220px, never taller than 440px, 52vw in between */
   height: clamp(220px, 52vw, 440px);
@@ -306,19 +334,22 @@ function onDecorationKey(event, decoration) {
   /* at least 44px so a small fish is still easy to tap */
   min-width: var(--al-tap);
   min-height: var(--al-tap);
-  width: max-content;
+  width: calc(var(--fish-size) * var(--scale) * 1.25);
+  height: calc(var(--fish-size) * var(--scale));
   padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: none;
-  font-size: calc(var(--fish-size) * var(--scale));
-  line-height: 1;
+  border: 1px solid var(--al-border);
+  border-radius: var(--al-radius-sm);
+  background: var(--al-surface-2);
   pointer-events: auto;
   /* step-end: jump straight to the next keyframe instead of turning slowly */
   animation: face var(--swim-time) step-end var(--swim-delay) infinite;
 }
 
 .swim__bob {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
   animation: bob 3s ease-in-out infinite alternate;
 }
 
@@ -332,7 +363,7 @@ function onDecorationKey(event, decoration) {
   }
 }
 
-/* The fish emoji faces left, so it is mirrored while swimming to the right */
+/* Turn the fish artwork when it changes swimming direction. */
 @keyframes face {
   0% {
     transform: scaleX(-1);
@@ -398,8 +429,8 @@ function onDecorationKey(event, decoration) {
   }
 }
 
-/* Clean: a sponge wipes across the glass and leaves sparkles behind it */
-.fx__sponge {
+/* Clean: washing bubbles move across the glass. */
+.fx__bubbles {
   position: absolute;
   top: 45%;
   left: 0;
@@ -431,46 +462,6 @@ function onDecorationKey(event, decoration) {
   }
 }
 
-.fx__sparkle {
-  position: absolute;
-  font-size: 1.3rem;
-  opacity: 0;
-  animation: sparkle 0.9s ease-out var(--spark-delay) forwards;
-}
-
-@keyframes sparkle {
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  40% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-}
-
-/* Temperature: the water glows for a moment and the new temperature rises up */
-.fx__glow {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 60%, var(--al-warn), transparent 70%);
-  opacity: 0;
-  animation: glow 2.2s ease-in-out forwards;
-}
-
-@keyframes glow {
-  0%,
-  100% {
-    opacity: 0;
-  }
-  40% {
-    opacity: 0.3;
-  }
-}
 
 .fx__thermo {
   position: absolute;
@@ -510,6 +501,8 @@ function onDecorationKey(event, decoration) {
   place-items: center;
   min-width: var(--al-tap);
   min-height: var(--al-tap);
+  width: clamp(44px, 6vw, 64px);
+  height: clamp(44px, 6vw, 64px);
   padding: 0.1rem;
   border: 2px dashed transparent;
   border-radius: var(--al-radius-sm);
@@ -546,37 +539,20 @@ function onDecorationKey(event, decoration) {
 .scene--decorating .decor--dragging {
   cursor: grabbing;
   background: color-mix(in srgb, var(--al-aqua) 20%, transparent);
-  box-shadow: var(--al-glow);
 }
 
-.scene__label {
-  position: absolute;
-  top: 0.75rem;
-  left: 0.75rem;
-  z-index: 101;
+
+.scene__tools {
   display: flex;
-  gap: 0.4rem;
-}
-
-.scene__decorate {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  z-index: 101;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .scene__hint {
-  position: absolute;
-  left: 50%;
-  /* under the labels, so it never covers decorations on the tank floor */
-  top: 3.75rem;
-  z-index: 101;
-  transform: translateX(-50%);
-  max-width: calc(100% - 1.5rem);
+  flex: 1 1 12rem;
   margin: 0;
-  white-space: normal;
-  text-align: center;
-  pointer-events: none;
 }
 
 .fish-card__photo {

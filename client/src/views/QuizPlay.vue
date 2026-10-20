@@ -6,6 +6,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { answerQuestion, finishQuiz, getQuizQuestions, notify } from '../stores/game'
 import PearlCount from '../components/PearlCount.vue'
+import AppIcon from '../components/AppIcon.vue'
 
 const questions = ref([])
 const loading = ref(true)
@@ -16,6 +17,10 @@ const feedback = ref(null) // { correct, isCorrect, fact } from the server
 const score = ref(0)
 const finished = ref(false)
 const reward = ref(0)
+const streakBonus = ref(0)
+const streak = ref(0)
+const practice = ref(false)
+const photoFailed = ref(false)
 
 onMounted(async () => {
   try {
@@ -56,11 +61,15 @@ async function next() {
     if (!result) return // finishQuiz already showed the error
     score.value = result.score
     reward.value = result.reward
+    streakBonus.value = result.streakBonus
+    streak.value = result.streak
+    practice.value = result.practice
     finished.value = true
   } else {
     index.value += 1
     chosen.value = null
     feedback.value = null
+    photoFailed.value = false
   }
 }
 
@@ -83,10 +92,14 @@ function answerClass(answerIndex) {
 
     <!-- Result screen -->
     <section v-else-if="finished" class="al-card al-card--raised text-center">
-      <div class="result-icon" aria-hidden="true">🎉</div>
+      <div class="mb-3"><AppIcon name="trophy" :size="64" /></div>
       <h1 class="al-title">{{ score }} / {{ questions.length }} correct</h1>
       <p v-if="reward > 0" class="fs-5 mt-2">You earned <PearlCount :amount="reward" signed /></p>
-      <p v-else class="text-muted-al mt-2">Practice round: no pearls this time.</p>
+      <p v-else-if="practice" class="text-muted-al mt-2">Practice round: no pearls this time.</p>
+      <p v-else class="text-muted-al mt-2">No correct answers today. Keep practising for tomorrow.</p>
+      <p v-if="streakBonus > 0" class="text-muted-al">
+        Includes <PearlCount :amount="streakBonus" signed /> for your {{ streak }}-day streak.
+      </p>
       <div class="d-flex flex-wrap justify-content-center gap-2">
         <RouterLink class="btn btn-aqua" :to="{ name: 'quiz' }">Back to quiz hub</RouterLink>
         <RouterLink class="btn btn-ghost" :to="{ name: 'browse' }">Spend pearls</RouterLink>
@@ -111,17 +124,20 @@ function answerClass(answerIndex) {
       </div>
 
       <div class="al-card">
-        <figure v-if="question.photo" class="mb-3">
+        <figure v-if="question.photo && !photoFailed" class="mb-3">
           <img
             class="question-photo"
             :src="question.photo.url"
             alt="Photo of the fish in this question"
+            @error="photoFailed = true"
           />
           <figcaption class="small text-muted-al mt-1">
             {{ question.photo.attribution }} (iNaturalist)
           </figcaption>
         </figure>
-        <div v-else class="al-ph question-art mb-3" aria-hidden="true">{{ question.emoji }}</div>
+        <div v-else class="al-ph question-art mb-3">
+          <AppIcon :name="question.icon || 'image'" :size="64" />
+        </div>
         <h1 class="h4 mb-3">{{ question.question }}</h1>
 
         <!-- 2 x 2 from the sm breakpoint, one column on phones -->
@@ -160,9 +176,6 @@ function answerClass(answerIndex) {
 </template>
 
 <style scoped>
-.quiz-play {
-  max-width: 760px;
-}
 
 .question-art {
   height: clamp(110px, 26vw, 200px);
@@ -191,7 +204,4 @@ function answerClass(answerIndex) {
   background: color-mix(in srgb, var(--al-bad) 18%, transparent);
 }
 
-.result-icon {
-  font-size: clamp(3rem, 2rem + 5vw, 5rem);
-}
 </style>

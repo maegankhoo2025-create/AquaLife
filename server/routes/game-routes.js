@@ -6,16 +6,15 @@ const User = require('../models/User-model')
 const Tank = require('../models/Tank-model')
 const Transaction = require('../models/Transaction-model')
 const Product = require('../models/Product-model')
-const { safeRange } = require('../logic/compatibility')
 const { purchase } = require('../logic/shop')
 const { simulateTank } = require('../logic/simulation')
 const {
   DAILY_TASKS,
+  QUIZ_STREAK_BONUSES,
   dayKey,
   levelInfo,
   tasksDoneToday,
   currentStreak,
-  changePearls,
   achievements,
 } = require('../logic/gamification')
 
@@ -58,6 +57,9 @@ router.get('/me', async (req, res) => {
         streak: currentStreak(user),
         doneToday: user.quiz.lastDay === dayKey(),
         scores: user.quiz.scores.slice().reverse(), // newest first
+        milestones: Object.entries(QUIZ_STREAK_BONUSES).map(([days, reward]) => ({
+          days: Number(days), reward,
+        })),
       },
       achievements: achievements(user, tanks),
     })
@@ -76,38 +78,50 @@ router.post('/tasks/:taskId', async (req, res) => {
   if (!task) return res.status(400).json({ message: 'Unknown task.' })
 
   try {
-    const user = await User.findById(req.session.userId)
-    const tank = await findMyTank(req.body.tankId, req.session.userId)
-    if (!user || !tank) return res.status(404).json({ message: 'Tank not found.' })
+    if (!mongoose.isValidObjectId(req.body.tankId)) {
+      return res.status(404).json({ message: 'Tank not found.' })
+    }
+    const result = await User.db.transaction(async (session) => {
+      const user = await User.findById(req.session.userId).session(session)
+      const tank = await Tank.findOne({ _id: req.body.tankId, owner: req.session.userId }).session(session)
+      if (!user || !tank) return null
+      simulateTank(tank)
 
-    let message
-    if (task.id === 'feed') {
-      for (const fish of tank.fish) if (fish.health > 0) fish.hunger = 0
-      message = `Fed the fish in ${tank.name}.`
-    } else if (task.id === 'clean') {
-      tank.conditions.waterQuality = 100
-      message = `${tank.name} is sparkling clean.`
-    } else {
-      // Move to the middle of the range that suits every fish, if there is one.
-      const range = safeRange(tank).temperature
-      if (range) {
-        tank.conditions.temperature = Math.round((range[0] + range[1]) / 2)
-        message = `${tank.name} is now ${tank.conditions.temperature}°C.`
+      let message
+      if (task.id === 'feed') {
+        for (const fish of tank.fish) if (fish.health > 0) fish.hunger = 0
+        message = `Fed the fish in ${tank.name}.`
+      } else if (task.id === 'clean') {
+        const target = tank.targets.waterQuality
+        if (tank.conditions.waterQuality < target) {
+          tank.conditions.waterQuality = Math.min(target, tank.conditions.waterQuality + 25)
+        }
+        message = `${tank.name} now has ${tank.conditions.waterQuality}% water quality.`
       } else {
-        message = `No temperature suits every fish in ${tank.name}. Try moving some fish to another tank.`
+        const difference = tank.targets.temperature - tank.conditions.temperature
+        tank.conditions.temperature = Math.abs(difference) <= 1
+          ? tank.targets.temperature
+          : tank.conditions.temperature + Math.sign(difference)
+        message = `${tank.name} is now ${tank.conditions.temperature}°C.`
       }
-    }
-    await tank.save()
+      await tank.save({ session })
 
-    let reward = 0
-    if (!tasksDoneToday(user).includes(task.id)) {
-      if (user.tasks.day !== dayKey()) user.tasks = { day: dayKey(), done: [] }
-      user.tasks.done.push(task.id)
-      reward = task.reward
-      await changePearls(user, { type: 'reward', label: task.label, amount: reward, xp: reward })
-    }
-
-    return res.status(200).json({ message, reward, pearls: user.pearls, xp: user.xp, tank })
+      let reward = 0
+      if (!tasksDoneToday(user).includes(task.id)) {
+        if (user.tasks.day !== dayKey()) user.tasks = { day: dayKey(), done: [] }
+        user.tasks.done.push(task.id)
+        reward = task.reward
+        user.pearls += reward
+        user.xp += reward
+        await user.save({ session })
+        await Transaction.create([{
+          user: user._id, type: 'reward', label: task.label, amount: reward,
+        }], { session })
+      }
+      return { message, reward, pearls: user.pearls, xp: user.xp, tank }
+    })
+    if (!result) return res.status(404).json({ message: 'Tank not found.' })
+    return res.status(200).json(result)
   } catch (error) {
     console.error('Task failed:', error)
     return res.status(500).json({ message: 'Unable to do that task. Please try again.' })

@@ -8,6 +8,7 @@ const filters = [
   { value: 'purchase', label: 'Purchases' },
   { value: 'reward', label: 'Rewards' },
   { value: 'refund', label: 'Refunds' },
+  { value: 'gift', label: 'Gifts' },
 ]
 
 // How each kind of entry is labelled and coloured.
@@ -15,6 +16,7 @@ const TYPES = {
   purchase: { label: 'Purchase', chip: 'al-chip--aqua' },
   reward: { label: 'Reward', chip: 'al-chip--ok' },
   refund: { label: 'Refund', chip: 'al-chip--warn' },
+  gift: { label: 'Gift', chip: 'al-chip--aqua' },
 }
 const filter = ref('all')
 

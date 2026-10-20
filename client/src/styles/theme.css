@@ -22,7 +22,6 @@
   --al-warn: #ffc56b;
   --al-bad: #ff7a6b;
 
-  --al-glow: 0 0 18px color-mix(in srgb, var(--al-aqua) 40%, transparent);
   --al-border: color-mix(in srgb, var(--al-muted) 22%, transparent);
 
   --al-radius-sm: 12px;
@@ -45,6 +44,11 @@
   --bs-link-hover-color: var(--al-text);
   --bs-link-color-rgb: 79, 216, 224;
   --bs-link-hover-color-rgb: 232, 241, 251;
+  --bs-gradient: none;
+  --bs-box-shadow: none;
+  --bs-box-shadow-sm: none;
+  --bs-box-shadow-lg: none;
+  --bs-box-shadow-inset: none;
 }
 
 body {
@@ -74,7 +78,24 @@ h5,
   outline-offset: 2px;
 }
 
+.btn:focus,
+.form-check-input:focus,
+.navbar-toggler:focus {
+  box-shadow: none;
+}
+
+:is(.btn, .form-control, .form-select, .form-check-input, .navbar-toggler):focus-visible {
+  outline: 3px solid var(--al-aqua);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
 /* ---- Tap targets and form controls ---- */
+.btn {
+  --bs-btn-box-shadow: none;
+  --bs-btn-focus-box-shadow: none;
+}
+
 .btn,
 .form-control,
 .form-select {
@@ -97,7 +118,7 @@ h5,
 .form-select:focus {
   background-color: var(--al-surface-2);
   border-color: var(--al-aqua);
-  box-shadow: var(--al-glow);
+  box-shadow: none;
   color: var(--al-text);
 }
 
@@ -147,11 +168,6 @@ h5,
   --bs-btn-disabled-bg: var(--al-surface-3);
   --bs-btn-disabled-color: var(--al-muted);
   --bs-btn-disabled-border-color: var(--al-surface-3);
-  box-shadow: var(--al-glow);
-}
-
-.btn-aqua:disabled {
-  box-shadow: none;
 }
 
 .btn-ghost {
@@ -172,6 +188,13 @@ h5,
 /* ---- Layout ---- */
 .al-page {
   padding-block: clamp(1rem, 3vw, 2rem) 5rem;
+}
+
+.container.al-page,
+.app-navbar > .container {
+  width: 100%;
+  max-width: none;
+  padding-inline: clamp(1rem, 2vw, 2rem);
 }
 
 .al-title {
@@ -207,22 +230,22 @@ h5,
 }
 
 .al-chip--aqua {
-  background: color-mix(in srgb, var(--al-aqua) 18%, transparent);
+  background: var(--al-surface-2);
   color: var(--al-aqua);
 }
 
 .al-chip--ok {
-  background: color-mix(in srgb, var(--al-ok) 18%, transparent);
+  background: var(--al-surface-2);
   color: var(--al-ok);
 }
 
 .al-chip--warn {
-  background: color-mix(in srgb, var(--al-warn) 18%, transparent);
+  background: var(--al-surface-2);
   color: var(--al-warn);
 }
 
 .al-chip--bad {
-  background: color-mix(in srgb, var(--al-bad) 18%, transparent);
+  background: var(--al-surface-2);
   color: var(--al-bad);
 }
 
@@ -249,13 +272,13 @@ h5,
   color: var(--al-bg);
 }
 
-/* ---- Placeholder picture (used until real species photos are loaded) ---- */
+/* ---- Picture and icon container ---- */
 .al-ph {
   display: grid;
   place-items: center;
   overflow: hidden;
   border-radius: var(--al-radius-sm);
-  background: linear-gradient(160deg, var(--al-surface-3), var(--al-surface-1));
+  background: var(--al-surface-2);
   font-size: clamp(2rem, 1.4rem + 3vw, 3.2rem);
   line-height: 1;
 }
@@ -268,25 +291,7 @@ h5,
 
 /* ---- Water background shared by the tank and the login artwork ---- */
 .al-water {
-  background:
-    radial-gradient(
-      120% 80% at 50% 0%,
-      color-mix(in srgb, var(--al-aqua) 30%, transparent),
-      transparent 70%
-    ),
-    linear-gradient(180deg, var(--al-surface-3), var(--al-bg));
-}
-
-/* ---- Pearl: the currency icon ---- */
-.al-pearl {
-  display: inline-block;
-  flex-shrink: 0;
-  width: 1em;
-  height: 1em;
-  border-radius: 50%;
-  background: radial-gradient(circle at 32% 30%, #fff 0 18%, var(--al-text) 45%, var(--al-muted) 100%);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--al-text) 45%, transparent);
-  vertical-align: -0.12em;
+  background: var(--al-surface-3);
 }
 
 /* ---- Progress bar ---- */
@@ -301,7 +306,6 @@ h5,
   height: 100%;
   border-radius: 999px;
   background: var(--al-aqua);
-  box-shadow: var(--al-glow);
   transition: width 0.3s ease;
 }
 
@@ -331,25 +335,6 @@ h5,
   min-width: 0;
 }
 
-/* ---- Floating action button ---- */
-.al-fab {
-  position: fixed;
-  right: clamp(1rem, 4vw, 2rem);
-  bottom: clamp(1rem, 4vw, 2rem);
-  z-index: 1020;
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--al-aqua);
-  color: var(--al-bg);
-  font-size: 2rem;
-  font-weight: 900;
-  line-height: 1;
-  text-decoration: none;
-  box-shadow: var(--al-glow);
-}
 
 /* ---- Toast: short confirmation message at the bottom of the screen ---- */
 .al-toast {

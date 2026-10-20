@@ -18,6 +18,7 @@ import History from '../views/History.vue'       // the history screen
 import Quiz from '../views/Quiz.vue'             // the quiz hub screen
 import QuizPlay from '../views/QuizPlay.vue'     // the screen where a quiz is played
 import Profile from '../views/Profile.vue'       // the profile screen
+import Friends from '../views/Friends.vue'
 
 // Build the router: the "map" that says which address shows which page
 const router = createRouter({
@@ -78,6 +79,12 @@ const router = createRouter({
       component: Profile,
       meta: { requiresAuth: true }, // label: login required
     },
+    {
+      path: '/friends',
+      name: 'friends',
+      component: Friends,
+      meta: { requiresAuth: true },
+    },
   ],
 })
 
@@ -105,7 +112,12 @@ router.beforeEach(async (to) => {
     }
 
     // If the server says no, send them to the login page instead
-    return { name: 'login' }
+    return {
+      name: 'login',
+      query: to.name === 'friends' && typeof to.query.invite === 'string'
+        ? { invite: to.query.invite }
+        : {},
+    }
 
   } catch (error) {
     // Something went wrong (e.g. the server is off or unreachable).

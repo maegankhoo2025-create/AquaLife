@@ -1,14 +1,17 @@
 <script setup>
-// A slider for one tank condition (temperature, pH or water quality).
-// The green band behind the slider shows the range that is safe for the fish.
-// Tapping the title opens real-life tips for keeping this condition right.
+// Targets are plans, not direct changes to actual tank conditions.
+// The safe band and advice help the player choose a target and care method.
 import { computed, ref } from 'vue'
 import AlModal from './AlModal.vue'
+import AppIcon from './AppIcon.vue'
 
 const props = defineProps({
   id: { type: String, required: true },
   label: { type: String, required: true },
   modelValue: { type: Number, required: true },
+  actual: { type: Number, required: true },
+  method: { type: String, required: true },
+  reached: { type: Boolean, default: false },
   min: { type: Number, required: true },
   max: { type: Number, required: true },
   step: { type: Number, default: 1 },
@@ -33,13 +36,15 @@ const bandStyle = computed(() => {
 
 const status = computed(() => {
   if (!props.safe) return { text: 'No shared range', chip: 'al-chip--warn' }
-  if (props.modelValue < props.safe[0]) return { text: 'Too low', chip: 'al-chip--bad' }
-  if (props.modelValue > props.safe[1]) return { text: 'Too high', chip: 'al-chip--bad' }
+  if (props.actual < props.safe[0]) return { text: 'Too low', chip: 'al-chip--bad' }
+  if (props.actual > props.safe[1]) return { text: 'Too high', chip: 'al-chip--bad' }
   return { text: 'In range', chip: 'al-chip--ok' }
 })
 
-// Whole-step sliders (temperature, water quality) show whole numbers; pH keeps two decimals so the slow driftwood drop (e.g. 6.92) is visible. Trailing zeros are dropped.
-const displayValue = computed(() => Number(props.modelValue.toFixed(props.step < 1 ? 2 : 0)))
+// Show slow simulation changes rather than rounding actual values to a slider step.
+const displayValue = computed(() => Number(props.actual.toFixed(2)))
+const targetValue = computed(() => Number(props.modelValue.toFixed(2)))
+const targetUnsafe = computed(() => !props.safe || props.modelValue < props.safe[0] || props.modelValue > props.safe[1])
 
 const showTips = ref(false)
 const outOfRange = computed(() => status.value.text === 'Too low' || status.value.text === 'Too high')
@@ -63,14 +68,19 @@ const tipSections = computed(() => {
         :aria-label="`${label}: tips for a real tank`"
         @click="showTips = true"
       >
-        {{ label }} <span class="condition__info" aria-hidden="true">ⓘ</span>
+        {{ label }} <AppIcon class="condition__info" name="info" :size="16" />
       </button>
       <span v-else class="fw-bold">{{ label }}</span>
       <span class="d-flex align-items-center gap-2">
-        <span class="fw-bold">{{ displayValue }}{{ unit }}</span>
+        <span class="fw-bold">Actual {{ displayValue }}{{ unit }}</span>
         <span class="al-chip" :class="status.chip">{{ status.text }}</span>
       </span>
     </div>
+
+    <label :for="id" class="small mt-2">
+      Target: <strong>{{ targetValue }}{{ unit }}</strong>
+      <span v-if="reached" class="al-chip al-chip--ok ms-1">Target reached</span>
+    </label>
 
     <div class="condition__slider">
       <div class="condition__track" aria-hidden="true">
@@ -78,7 +88,7 @@ const tipSections = computed(() => {
       </div>
       <input
         :id="id"
-        :aria-label="label"
+        :aria-label="`${label} target`"
         type="range"
         :min="min"
         :max="max"
@@ -92,6 +102,8 @@ const tipSections = computed(() => {
       <template v-if="safe">Safe range: {{ safe[0] }}–{{ safe[1] }}{{ unit }}</template>
       <template v-else>Your fish need different ranges. Consider moving some to another tank.</template>
     </p>
+    <p v-if="targetUnsafe" class="small mb-1">This target is outside the shared safe range. Choose a target that suits every living fish.</p>
+    <p class="small mt-1 mb-0">{{ method }}</p>
 
     <AlModal
       v-if="tips"
@@ -112,7 +124,7 @@ const tipSections = computed(() => {
       <section v-for="(section, index) in tipSections" :key="section.title" class="mb-3">
         <h3 class="h6 fw-bold d-flex align-items-center flex-wrap gap-2">
           {{ section.title }}
-          <span v-if="index === 0 && outOfRange" class="al-chip al-chip--warn">Do this now</span>
+          <span v-if="index === 0 && outOfRange" class="al-chip al-chip--warn">Relevant to the actual reading</span>
         </h3>
         <ul class="mb-0">
           <li v-for="step in section.steps" :key="step">{{ step }}</li>
@@ -132,6 +144,9 @@ const tipSections = computed(() => {
 }
 
 .condition__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   color: inherit;
   text-decoration: none;
 }
@@ -143,7 +158,6 @@ const tipSections = computed(() => {
 
 .condition__info {
   color: var(--al-muted);
-  font-weight: 400;
 }
 
 .condition__slider {
@@ -201,7 +215,6 @@ input[type='range']::-webkit-slider-thumb {
   border: 3px solid var(--al-aqua);
   border-radius: 50%;
   background: var(--al-text);
-  box-shadow: var(--al-glow);
 }
 
 input[type='range']::-moz-range-thumb {
@@ -211,6 +224,5 @@ input[type='range']::-moz-range-thumb {
   border: 3px solid var(--al-aqua);
   border-radius: 50%;
   background: var(--al-text);
-  box-shadow: var(--al-glow);
 }
 </style>

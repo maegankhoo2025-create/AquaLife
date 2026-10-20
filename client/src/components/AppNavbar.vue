@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { game } from '../stores/game'
 import LogoutButton from './LogoutButton.vue'
 import PearlCount from './PearlCount.vue'
+import AppIcon from './AppIcon.vue'
 
 const links = [
   { to: { name: 'dashboard' }, label: 'Dashboard' },
@@ -11,6 +12,7 @@ const links = [
   { to: { name: 'browse' }, label: 'Shop' },
   { to: { name: 'quiz' }, label: 'Quiz' },
   { to: { name: 'history' }, label: 'History' },
+  { to: { name: 'friends' }, label: 'Friends' },
   { to: { name: 'profile' }, label: 'Profile' },
 ]
 
@@ -30,7 +32,7 @@ watch(
   <nav class="navbar navbar-expand-lg sticky-top app-navbar" aria-label="Main">
     <div class="container">
       <RouterLink class="navbar-brand" :to="{ name: 'dashboard' }">
-        <span aria-hidden="true">🐠</span> AquaLife
+        <AppIcon name="fish" :size="26" /> AquaLife
       </RouterLink>
 
       <!-- On small screens the pearl balance sits beside the hamburger button -->
@@ -46,7 +48,7 @@ watch(
           aria-label="Toggle menu"
           @click="menuOpen = !menuOpen"
         >
-          <span class="navbar-toggler-icon"></span>
+          <AppIcon :name="menuOpen ? 'x' : 'menu'" />
         </button>
       </div>
 
@@ -95,6 +97,8 @@ watch(
 }
 
 .navbar-toggler {
+  display: grid;
+  place-items: center;
   min-width: var(--al-tap);
   min-height: var(--al-tap);
   border-color: var(--al-border);

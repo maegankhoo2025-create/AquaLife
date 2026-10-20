@@ -90,13 +90,23 @@ if (
     await user.setPassword(password)
     await user.save()
 
-    return res.json({
-      message: 'Account created successfully.',
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-      },
+    req.session.userId = user._id.toString()
+
+    return req.session.save((error) => {
+      if (error) {
+        delete req.session.userId
+        console.error('Sign-up failed:', error)
+        return res.json({ message: 'Unable to create the account. Please try again.' })
+      }
+
+      return res.json({
+        message: 'Account created successfully.',
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+        },
+      })
     })
   } catch (error) {
     console.error('Sign-up failed:', error)
@@ -131,13 +141,21 @@ router.post('/login', async (req, res) => {
 
     req.session.userId = user._id.toString()
 
-    return res.json({
-      message: 'Logged in successfully.',
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-      },
+    return req.session.save((error) => {
+      if (error) {
+        delete req.session.userId
+        console.error('Log-in failed:', error)
+        return res.json({ message: 'Unable to log in. Please try again.' })
+      }
+
+      return res.json({
+        message: 'Logged in successfully.',
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+        },
+      })
     })
   } catch (error) {
     console.error('Log-in failed:', error)
@@ -172,6 +190,65 @@ router.get('/session', async (req, res) => {
     return res.json({
       message: 'Unable to check the login session. Please try again.',
     })
+  }
+})
+
+router.patch('/profile', async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ message: 'Please log in first.' })
+  }
+
+  const name = req.body.name
+  const email = req.body.email
+
+  if (
+    typeof name !== 'string' ||
+    typeof email !== 'string' ||
+    !name.trim() ||
+    !email.trim()
+  ) {
+    return res.status(400).json({ message: 'Please enter your name and email address.' })
+  }
+
+  const cleanName = name.trim()
+  const cleanEmail = email.trim().toLowerCase()
+  const parts = cleanEmail.split('@')
+
+  if (cleanEmail.includes(' ') || parts.length !== 2 || parts[0] === '') {
+    return res.status(400).json({ message: 'Please enter a valid email address.' })
+  }
+
+  const afterAt = parts[1]
+  const dotPosition = afterAt.lastIndexOf('.')
+  if (dotPosition <= 0 || dotPosition === afterAt.length - 1) {
+    return res.status(400).json({ message: 'Please enter a valid email address.' })
+  }
+
+  try {
+    const user = await User.findById(req.session.userId)
+    if (!user) {
+      return res.status(401).json({ message: 'Please log in first.' })
+    }
+
+    const existingUser = await User.findOne({ email: cleanEmail, _id: { $ne: user._id } })
+    if (existingUser) {
+      return res.status(409).json({ message: 'An account with this email already exists.' })
+    }
+
+    user.name = cleanName
+    user.email = cleanEmail
+    await user.save()
+
+    return res.json({
+      user: { id: user._id, name: user.name, email: user.email },
+      message: 'Profile updated successfully.',
+    })
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: 'An account with this email already exists.' })
+    }
+    console.error('Profile update failed:', error)
+    return res.status(500).json({ message: 'Unable to update your profile. Please try again.' })
   }
 })
 

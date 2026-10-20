@@ -16,6 +16,7 @@ const gameRoutes = require('./routes/game-routes');
 const quizRoutes = require('./routes/quiz-routes');
 const speciesRoutes = require('./routes/species-routes');
 const productRoutes = require('./routes/products-routes');
+const friendRoutes = require('./routes/friends-routes');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -63,6 +64,7 @@ app.use('/api/game', gameRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/species', speciesRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/friends', friendRoutes);
 
 // Fallback for unknown routes
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));

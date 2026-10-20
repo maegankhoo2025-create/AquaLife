@@ -2,6 +2,7 @@
 import { RouterLink } from 'vue-router'
 import { achievements, formatDate, game, quizDoneToday } from '../stores/game'
 import PearlCount from '../components/PearlCount.vue'
+import AppIcon from '../components/AppIcon.vue'
 </script>
 
 <template>
@@ -14,7 +15,7 @@ import PearlCount from '../components/PearlCount.vue'
         <div class="al-card al-card--raised h-100">
           <div class="row g-3 align-items-center">
             <div class="col-12 col-sm-4">
-              <div class="al-ph quiz-art" aria-hidden="true">🐠</div>
+              <div class="al-ph quiz-art"><AppIcon name="book" :size="64" /></div>
             </div>
             <div class="col-12 col-sm-8">
               <h2 class="h4">Today's quiz</h2>
@@ -38,8 +39,17 @@ import PearlCount from '../components/PearlCount.vue'
       <section class="col-12 col-lg-4">
         <div class="al-card h-100 text-center">
           <h2 class="h5">Streak</h2>
-          <p class="streak mb-0"><span aria-hidden="true">🔥</span> {{ game.quiz.streak }}</p>
+          <p class="streak mb-0"><AppIcon name="flame" :size="36" /> {{ game.quiz.streak }}</p>
           <p class="text-muted-al mb-0">days in a row</p>
+          <ul class="streak-milestones mt-3 mb-0" aria-label="Quiz streak bonuses">
+            <li v-for="milestone in game.quiz.milestones || []" :key="milestone.days">
+              <span>{{ milestone.days }} days</span>
+              <PearlCount :amount="milestone.reward" signed />
+              <span class="small text-muted-al">
+                {{ game.quiz.streak >= milestone.days ? 'Reached this streak' : 'Bonus' }}
+              </span>
+            </li>
+          </ul>
         </div>
       </section>
 
@@ -48,10 +58,10 @@ import PearlCount from '../components/PearlCount.vue'
         <div class="al-card h-100">
           <h2 class="h5">Badges</h2>
           <div class="row g-2">
-            <div v-for="badge in achievements" :key="badge.id" class="col-6 col-sm-4">
+            <div v-for="badge in achievements" :key="badge.id" class="col-6 col-sm-4 col-xxl-3">
               <div class="badge-tile" :class="{ 'opacity-50': !badge.earned }">
-                <span class="badge-tile__icon" aria-hidden="true">{{ badge.emoji }}</span>
-                <span class="small fw-bold">{{ badge.name }}</span>
+                <AppIcon :name="badge.icon" :size="40" />
+                <span class="fw-bold">{{ badge.name }}</span>
                 <span class="visually-hidden">{{ badge.earned ? '(earned)' : '(locked)' }}</span>
               </div>
             </div>
@@ -92,15 +102,29 @@ import PearlCount from '../components/PearlCount.vue'
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.65rem;
   height: 100%;
-  padding: 0.75rem 0.5rem;
+  min-height: 144px;
+  padding: 1.25rem 0.75rem;
   border-radius: var(--al-radius-sm);
   background: var(--al-surface-2);
   text-align: center;
 }
 
-.badge-tile__icon {
-  font-size: 1.8rem;
+.streak-milestones {
+  list-style: none;
+  padding: 0;
+  text-align: left;
 }
+
+.streak-milestones li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding-block: 0.45rem;
+  border-top: 1px solid var(--al-border);
+}
+
 </style>

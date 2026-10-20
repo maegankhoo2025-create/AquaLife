@@ -1,12 +1,8 @@
 <script setup>
-// Shows one tank at a time and lets the user move between tanks:
-// swipe on a touch screen, arrow buttons with a mouse, dots on both.
-//
-// It uses the browser's own horizontal scrolling with CSS scroll-snap, so
-// there is no swipe library and no touch-event code to maintain.
-//   <TankSwiper v-model="game.currentTankId" :tanks="game.tanks" />
+// Uses native horizontal scrolling with scroll-snap for touch swipes.
 import { nextTick, onMounted, ref, watch } from 'vue'
 import TankScene from './TankScene.vue'
+import AppIcon from './AppIcon.vue'
 
 const props = defineProps({
   tanks: { type: Array, required: true },
@@ -50,10 +46,13 @@ function onScroll() {
   }, 120)
 }
 
-// When the current tank changes from outside (arrows, dots, another page), scroll to it.
+// Keep the scene in sync with button presses and changes from another page.
 watch(
-  () => props.modelValue,
-  () => scrollToIndex(indexOfCurrent()),
+  () => [props.modelValue, props.tanks.length],
+  async () => {
+    await nextTick()
+    scrollToIndex(indexOfCurrent())
+  },
 )
 
 onMounted(async () => {
@@ -64,56 +63,56 @@ onMounted(async () => {
 
 <template>
   <section class="swiper" aria-label="Your tanks">
-    <div ref="track" class="swiper__track" @scroll.passive="onScroll">
+    <div
+      ref="track"
+      class="swiper__track"
+      role="group"
+      aria-label="Tank scenes"
+      tabindex="0"
+      @scroll.passive="onScroll"
+      @keydown.left.self.prevent="go(-1)"
+      @keydown.right.self.prevent="go(1)"
+    >
       <div v-for="tank in tanks" :key="tank.id" class="swiper__slide">
         <TankScene :tank="tank" :interactive="interactive" />
       </div>
     </div>
 
-    <button
-      class="swiper__arrow swiper__arrow--prev"
-      type="button"
-      aria-label="Previous tank"
-      :disabled="indexOfCurrent() === 0"
-      @click="go(-1)"
-    >
-      ‹
-    </button>
-    <button
-      class="swiper__arrow swiper__arrow--next"
-      type="button"
-      aria-label="Next tank"
-      :disabled="indexOfCurrent() === tanks.length - 1"
-      @click="go(1)"
-    >
-      ›
-    </button>
-
-    <div class="swiper__dots">
+    <div class="swiper__navigation" role="group" aria-label="Tank navigation">
       <button
-        v-for="tank in tanks"
-        :key="tank.id"
+        v-if="tanks.length > 1"
+        class="swiper__arrow"
         type="button"
-        :aria-label="`Show ${tank.name}`"
-        :aria-current="tank.id === modelValue"
-        @click="emit('update:modelValue', tank.id)"
+        aria-label="Previous tank"
+        :disabled="indexOfCurrent() === 0"
+        @click="go(-1)"
       >
-        <span></span>
+        <AppIcon name="chevron-left" :size="20" />
+      </button>
+      <p class="swiper__label" aria-live="polite" aria-atomic="true">
+        <span>{{ tanks[indexOfCurrent()]?.name }}</span>
+        <span v-if="tanks.length > 1" class="small text-muted-al">{{ indexOfCurrent() + 1 }} / {{ tanks.length }}</span>
+      </p>
+      <button
+        v-if="tanks.length > 1"
+        class="swiper__arrow"
+        type="button"
+        aria-label="Next tank"
+        :disabled="indexOfCurrent() >= tanks.length - 1"
+        @click="go(1)"
+      >
+        <AppIcon name="chevron-right" :size="20" />
       </button>
     </div>
   </section>
 </template>
 
 <style scoped>
-.swiper {
-  position: relative;
-}
-
 .swiper__track {
   display: flex;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  scrollbar-width: none; /* hide the scrollbar; the dots show the position */
+  scrollbar-width: none;
   border-radius: var(--al-radius-lg);
 }
 
@@ -126,69 +125,45 @@ onMounted(async () => {
   scroll-snap-align: center;
 }
 
-/* Arrows are for mouse users only; touch users swipe instead */
+.swiper__navigation {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
 .swiper__arrow {
-  display: none;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 48px;
-  height: 48px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: var(--al-tap);
+  height: var(--al-tap);
   border: 1px solid var(--al-border);
-  border-radius: 50%;
+  border-radius: var(--al-radius-sm);
   background: var(--al-surface-2);
   color: var(--al-text);
-  font-size: 1.8rem;
-  line-height: 1;
-}
-
-.swiper__arrow--prev {
-  left: 0.75rem;
-}
-
-.swiper__arrow--next {
-  right: 0.75rem;
 }
 
 .swiper__arrow:disabled {
   opacity: 0.35;
 }
 
-@media (hover: hover) {
-  .swiper__arrow {
-    display: block;
-  }
-
-  .swiper__arrow:hover:not(:disabled) {
-    border-color: var(--al-aqua);
-    box-shadow: var(--al-glow);
-  }
+.swiper__arrow:hover:not(:disabled) {
+  border-color: var(--al-aqua);
 }
 
-.swiper__dots {
+.swiper__label {
   display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
-}
-
-/* Each dot is a 44px button with a small circle drawn inside it */
-.swiper__dots button {
-  display: grid;
-  place-items: center;
-  width: var(--al-tap);
-  height: var(--al-tap);
-  border: 0;
-  background: none;
-}
-
-.swiper__dots span {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--al-surface-3);
-}
-
-.swiper__dots button[aria-current='true'] span {
-  background: var(--al-aqua);
-  box-shadow: var(--al-glow);
+  gap: 0.25rem 0.75rem;
+  min-width: 0;
+  margin: 0;
+  font-weight: 700;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 </style>

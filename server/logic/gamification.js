@@ -1,10 +1,10 @@
 // Pearls, XP, levels, daily tasks, streaks and achievements.
 // Server copy of the rules in client/src/stores/game.js.
 
-const Transaction = require('../models/Transaction-model')
 const { getSpecies } = require('../data/species')
 
 const XP_PER_LEVEL = 200
+const QUIZ_STREAK_BONUSES = { 5: 5, 10: 10, 20: 20, 40: 40, 80: 80 }
 
 const DAILY_TASKS = [
   { id: 'feed', label: 'Feed your fish', reward: 5 },
@@ -41,14 +41,6 @@ function currentStreak(user) {
   return last === dayKey() || last === yesterdayKey() ? user.quiz.streak : 0
 }
 
-// Adds (or with a negative amount, takes) pearls and XP, saves the user and
-// writes the change to the history.
-async function changePearls(user, { type, label, amount, xp = 0 }) {
-  user.pearls += amount
-  user.xp += xp
-  await user.save()
-  await Transaction.create({ user: user._id, type, label, amount })
-}
 
 // Dead fish (health 0) stay in the tank but do not count towards achievements.
 function achievements(user, tanks) {
@@ -60,14 +52,14 @@ function achievements(user, tanks) {
   })
 
   return [
-    { id: 'first-fish', emoji: '🐟', name: 'First fish', earned: fishCount >= 1 },
-    { id: 'school', emoji: '🐠', name: 'School of 10', earned: fishCount >= 10 },
-    { id: 'fully-grown', emoji: '🐋', name: 'Fully grown', earned: fullyGrown },
-    { id: 'streak', emoji: '🔥', name: '3-day quiz streak', earned: currentStreak(user) >= 3 },
-    { id: 'saver', emoji: '💎', name: '500 pearls saved', earned: user.pearls >= 500 },
+    { id: 'first-fish', icon: 'fish', name: 'First fish', earned: fishCount >= 1 },
+    { id: 'school', icon: 'aquarium', name: 'School of 10', earned: fishCount >= 10 },
+    { id: 'fully-grown', icon: 'trophy', name: 'Fully grown', earned: fullyGrown },
+    { id: 'streak', icon: 'flame', name: '3-day quiz streak', earned: currentStreak(user) >= 3 },
+    { id: 'saver', icon: 'coins', name: '500 pearls saved', earned: user.pearls >= 500 },
     {
       id: 'carer',
-      emoji: '🧽',
+      icon: 'clean',
       name: 'All tasks done today',
       earned: tasksDoneToday(user).length === DAILY_TASKS.length,
     },
@@ -76,11 +68,11 @@ function achievements(user, tanks) {
 
 module.exports = {
   DAILY_TASKS,
+  QUIZ_STREAK_BONUSES,
   dayKey,
   yesterdayKey,
   levelInfo,
   tasksDoneToday,
   currentStreak,
-  changePearls,
   achievements,
 }

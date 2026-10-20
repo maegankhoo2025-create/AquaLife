@@ -1,21 +1,32 @@
 
 
 const express = require('express')
+const mongoose = require('mongoose')
 const Tank = require('../models/Tank-model')
 const User = require('../models/User-model')
 const { getSpecies } = require('../data/species')
 const Product = require('../models/Product-model')
 const { checkCompatibility } = require('../logic/compatibility')
-const { changePearls } = require('../logic/gamification')
+const Transaction = require('../models/Transaction-model')
 const { purchase } = require('../logic/shop')
 const { simulateTank } = require('../logic/simulation')
 
 const router = express.Router()
 
+// Reject malformed IDs before Mongoose tries to cast them.
+for (const field of ['id', 'fishId', 'decorationId']) {
+  router.param(field, (req, res, next, value) => {
+    if (!mongoose.isValidObjectId(value)) {
+      return res.status(400).json({ message: 'Please choose a valid tank or item.' })
+    }
+    next()
+  })
+}
+
 // Helper: stop the request if nobody is logged in
 function requireLogin(req, res) {
   if (!req.session.userId) {
-    res.json({ message: 'Please log in first.' })
+    res.status(401).json({ message: 'Please log in first.' })
     return false
   }
   return true
@@ -65,7 +76,7 @@ router.get('/:id/compatibility/:speciesId', async (req, res) => {
   if (!species) return res.status(400).json({ message: 'Unknown fish species.' })
 
   try {
-    const tank = await Tank.getTankById(req.params.id, req.session.userId)
+    const tank = await simulateAndSave(await Tank.getTankById(req.params.id, req.session.userId))
     if (!tank) return res.status(404).json({ message: 'Tank not found.' })
 
     const { ok, reasons } = checkCompatibility(species, tank)
@@ -85,6 +96,9 @@ router.post('/', async (req, res) => {
   if (typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ message: 'Please enter a tank name.' })
   }
+  if (name.trim().length > 40) {
+    return res.status(400).json({ message: 'Tank names can have up to 40 characters.' })
+  }
 
   try {
     const tank = await Tank.createTank({
@@ -99,69 +113,39 @@ router.post('/', async (req, res) => {
 })
 
 
-// PATCH /tanks/:id/conditions
-// Updates one or more water conditions (temperature, pH, water quality) of a tank.
-// PATCH means "partial update": the frontend only sends the fields it wants to change.
-router.patch('/:id/conditions', async (req, res) => {
-  // Stop here if the user isn't logged in.
-  // requireLogin sends the error response itself, so we just return.
+// PATCH /api/tanks/:id/targets -> chosen goals, not the actual water conditions
+router.patch('/:id/targets', async (req, res) => {
   if (!requireLogin(req, res)) return
 
+  const limits = {
+    temperature: [15, 35],
+    ph: [5, 9],
+    waterQuality: [0, 100],
+  }
+  const updates = {}
+  for (const field of Object.keys(limits)) {
+    if (req.body[field] === undefined) continue
+    const value = req.body[field]
+    const [min, max] = limits[field]
+    if (!Number.isFinite(value) || value < min || value > max) {
+      return res.status(400).json({ message: `${field} must be a number from ${min} to ${max}.` })
+    }
+    updates['targets.' + field] = value
+  }
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ message: 'No targets to update.' })
+  }
+
   try {
-    // The only fields this route is allowed to change.
-    // Anything else in the request body (e.g. "name" or "owner") is ignored.
-    const fields = ['temperature', 'ph', 'waterQuality']
-
-    // We'll collect the changes here before saving them.
-    const updates = {}
-
-    // Go through each allowed field one at a time.
-    for (const field of fields) {
-      // Only handle fields the frontend actually sent.
-      if (req.body[field] !== undefined) {
-        // Convert the value to a number (e.g. "25" from a form becomes 25).
-        const value = Number(req.body[field])
-
-        // If it can't be turned into a number (e.g. "abc"), reject the request.
-        if (Number.isNaN(value)) {
-          return res.status(400).json({ message: field + ' must be a number.' })
-        }
-
-        // conditions is a nested object in the schema, so we use "dot notation"
-        // ('conditions.temperature') to update just that one field inside it.
-        // Writing { conditions: { temperature: 25 } } instead would wipe out ph and waterQuality.
-        updates['conditions.' + field] = value
-      }
-    }
-
-    // Nothing valid was sent, so there's nothing to update.
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ message: 'No conditions to update.' })
-    }
-
-    // Catch the tank up first, so the hours before this change are simulated with the old conditions rather than the new ones.
-    await simulateAndSave(await Tank.getTankById(req.params.id, req.session.userId))
-
-    // Save the changes to MongoDB. This only updates the tank if it has this id
-    // AND belongs to the logged-in user (req.session.userId).
-    // It returns the updated tank, or null if no matching tank was found.
+    // Elapsed hours use the old pH target; the new target only applies from now on.
+    const before = await simulateAndSave(await Tank.getTankById(req.params.id, req.session.userId))
+    if (!before) return res.status(404).json({ message: 'Tank not found.' })
     const tank = await Tank.updateTank(req.params.id, req.session.userId, updates)
-
-    // No tank found: wrong id, or the tank belongs to someone else.
     if (!tank) return res.status(404).json({ message: 'Tank not found.' })
-
-    // Success: send back a message plus the updated tank so the frontend can refresh.
-    return res.status(200).json({ message: 'Conditions updated.', tank })
+    return res.status(200).json({ message: 'Targets updated.', tank })
   } catch (error) {
-    // The schema has min/max rules (e.g. pH between 0 and 14).
-    // If a value breaks those rules, Mongoose throws a ValidationError.
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({ message: 'That value is outside the allowed range.' })
-    }
-
-    // Any other unexpected problem (e.g. database down): log it for us, and give the user a general message.
-    console.error('Update conditions failed:', error)
-    return res.status(500).json({ message: 'Unable to update the conditions. Please try again.' })
+    console.error('Update targets failed:', error)
+    return res.status(500).json({ message: 'Unable to update the targets. Please try again.' })
   }
 })
 
@@ -176,6 +160,9 @@ router.post('/:id/fish', async (req, res) => {
   const nickname = req.body.nickname
   if (typeof speciesId !== 'string' || !speciesId.trim()) {
     return res.status(400).json({ message: 'Please choose a fish species.' })
+  }
+  if (nickname !== undefined && (typeof nickname !== 'string' || nickname.trim().length > 20)) {
+    return res.status(400).json({ message: 'Nicknames must be text with up to 20 characters.' })
   }
 
   // Same slug as the shop, e.g. 'guppy'
@@ -204,19 +191,32 @@ router.post('/:id/fish', async (req, res) => {
 
 router.patch('/:id/fish/:fishId', async (req, res) => {
   if (!requireLogin(req, res)) return
-  if (typeof req.body.nickname !== 'string') {
-    return res.status(400).json({ message: 'Please enter a nickname.' })
+  const updates = {}
+  if (req.body.nickname !== undefined) {
+    if (typeof req.body.nickname !== 'string' || req.body.nickname.trim().length > 20) {
+      return res.status(400).json({ message: 'Nicknames must be text with up to 20 characters.' })
+    }
+    updates['fish.$.nickname'] = req.body.nickname.trim()
+  }
+  if (req.body.notes !== undefined) {
+    if (typeof req.body.notes !== 'string' || req.body.notes.length > 2000) {
+      return res.status(400).json({ message: 'Notes must be text with up to 2000 characters.' })
+    }
+    updates['fish.$.notes'] = req.body.notes
+  }
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ message: 'Please enter a nickname or notes to save.' })
   }
   try {
     const tank = await Tank.findOneAndUpdate(
       { _id: req.params.id, owner: req.session.userId, 'fish._id': req.params.fishId },
-      { $set: { 'fish.$.nickname': req.body.nickname.trim().slice(0, 20) } },
+      { $set: updates },
       { new: true, runValidators: true },
     )
     if (!tank) return res.status(404).json({ message: 'Fish not found.' })
     return res.json({ tank })
   } catch (error) {
-    return res.status(400).json({ message: 'Unable to save the nickname.' })
+    return res.status(400).json({ message: 'Unable to save the fish details.' })
   }
 })
 
@@ -247,30 +247,36 @@ router.delete('/:id/fish/:fishId', async (req, res) => {
   if (!requireLogin(req, res)) return
 
   try {
-    const user = await User.findById(req.session.userId)
-    const before = await Tank.getTankById(req.params.id, req.session.userId)
-    if (!user || !before) return res.status(404).json({ message: 'Tank not found.' })
+    const result = await User.db.transaction(async (session) => {
+      const user = await User.findById(req.session.userId).session(session)
+      const tank = await Tank.findOne({ _id: req.params.id, owner: req.session.userId }).session(session)
+      if (!user || !tank) return { status: 404, body: { message: 'Tank not found.' } }
 
-    // Catch the tank up first, so a fish that died while the user was away is not refunded.
-    await simulateAndSave(before)
+      // A fish that died while the user was away has no resale value.
+      simulateTank(tank)
+      const fish = tank.fish.id(req.params.fishId)
+      if (!fish) return { status: 404, body: { message: 'Fish not found.' } }
+      const item = await Product.findOne({ id: fish.speciesId }).session(session)
+      const refund = fish.health > 0 && item ? item.price : 0
 
-    const fish = before.fish.id(req.params.fishId)
-    if (!fish) return res.status(404).json({ message: 'Fish not found.' })
-
-    // Price comes from MongoDB so a Compass price change is refunded correctly
-    const item = await Product.getProductBySlug(fish.speciesId)
-    const refund = fish.health > 0 && item ? item.price : 0
-    
-    const tank = await Tank.removeFish(req.params.id, req.session.userId, req.params.fishId)
-    if (refund > 0) {
-      await changePearls(user, {
-        type: 'refund',
-        label: `${item.name} removed from ${before.name}`,
-        amount: refund,
-      })
-    }
-
-    return res.status(200).json({ message: 'Fish removed.', tank, refund, pearls: user.pearls })
+      fish.deleteOne()
+      await tank.save({ session })
+      let pearls = user.pearls
+      if (refund > 0) {
+        const refundedUser = await User.findByIdAndUpdate(
+          user._id, { $inc: { pearls: refund } }, { new: true, session },
+        )
+        pearls = refundedUser.pearls
+        await Transaction.create([{
+          user: user._id,
+          type: 'refund',
+          label: `${item.name} removed from ${tank.name}`,
+          amount: refund,
+        }], { session })
+      }
+      return { status: 200, body: { message: 'Fish removed.', tank, refund, pearls } }
+    })
+    return res.status(result.status).json(result.body)
   } catch (error) {
     console.error('Remove fish failed:', error)
     return res.status(500).json({ message: 'Unable to remove the fish. Please try again.' })
@@ -283,35 +289,37 @@ router.delete('/:id/decorations/:decorationId', async (req, res) => {
   if (!requireLogin(req, res)) return
 
   try {
-    const user = await User.findById(req.session.userId)
-    const tank = await Tank.getTankById(req.params.id, req.session.userId)
-    if (!user || !tank) return res.status(404).json({ message: 'Tank not found.' })
+    const result = await User.db.transaction(async (session) => {
+      const user = await User.findById(req.session.userId).session(session)
+      const tank = await Tank.findOne({ _id: req.params.id, owner: req.session.userId }).session(session)
+      if (!user || !tank) return { status: 404, body: { message: 'Tank not found.' } }
 
-    // Catch the tank up first, so the item's effect (e.g. coral raising pH) counts until now.
-    simulateTank(tank)
+      // Keep the pH reached so far, then stop this item's future effects.
+      simulateTank(tank)
+      const decoration = tank.decorations.id(req.params.decorationId)
+      if (!decoration) return { status: 404, body: { message: 'Decoration not found.' } }
+      const item = await Product.findOne({ id: decoration.itemId }).session(session)
+      const refund = item ? item.price : 0
+      const name = item ? item.name : 'Decoration'
 
-    const decoration = tank.decorations.id(req.params.decorationId)
-    if (!decoration) {
-      await tank.save()
-      return res.status(404).json({ message: 'Decoration not found.' })
-    }
-
-    // Price comes from MongoDB so a Compass price change is refunded correctly
-    const item = await Product.getProductBySlug(decoration.itemId)
-    const refund = item ? item.price : 0
-    const name = item ? item.name : 'Decoration'
-
-    decoration.deleteOne()
-    await tank.save()
-    if (refund > 0) {
-      await changePearls(user, {
-        type: 'refund',
-        label: `${name} removed from ${tank.name}`,
-        amount: refund,
-      })
-    }
-
-    return res.status(200).json({ message: `${name} removed.`, tank, refund, pearls: user.pearls })
+      decoration.deleteOne()
+      await tank.save({ session })
+      let pearls = user.pearls
+      if (refund > 0) {
+        const refundedUser = await User.findByIdAndUpdate(
+          user._id, { $inc: { pearls: refund } }, { new: true, session },
+        )
+        pearls = refundedUser.pearls
+        await Transaction.create([{
+          user: user._id,
+          type: 'refund',
+          label: `${name} removed from ${tank.name}`,
+          amount: refund,
+        }], { session })
+      }
+      return { status: 200, body: { message: `${name} removed.`, tank, refund, pearls } }
+    })
+    return res.status(result.status).json(result.body)
   } catch (error) {
     console.error('Remove decoration failed:', error)
     return res.status(500).json({ message: 'Unable to remove the decoration. Please try again.' })

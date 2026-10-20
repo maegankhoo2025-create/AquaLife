@@ -6,6 +6,7 @@ import { computed, ref, watch } from 'vue'
 import { checkCompatibility, game } from '../stores/game'
 import AlModal from './AlModal.vue'
 import PearlCount from './PearlCount.vue'
+import ItemVisual from './ItemVisual.vue'
 
 const props = defineProps({
   item: { type: Object, default: null }, // null means the dialog is closed
@@ -52,8 +53,7 @@ const total = computed(() => props.item.price * quantity.value)
     <div v-if="item" class="row g-3">
       <div class="col-12 col-sm-5">
         <div class="al-ph gallery">
-          <img v-if="item.photos[photoIndex]" :src="item.photos[photoIndex]" :alt="item.name" />
-          <span v-else aria-hidden="true">{{ item.emoji }}</span>
+          <ItemVisual :item="item" :photo-index="photoIndex" />
         </div>
         <p v-if="item.speciesInfo?.photo" class="small mt-2">
          <a :href="item.speciesInfo.photo.sourceUrl" target="_blank"
@@ -63,15 +63,15 @@ const total = computed(() => props.item.price * quantity.value)
 </p>
         <div v-if="item.photos.length > 1" class="d-flex gap-2 mt-2">
           <button
-            v-for="(url, index) in item.photos.slice(0, 4)"
-            :key="url"
+            v-for="(_, index) in item.photos.slice(0, 4)"
+            :key="index"
             class="al-ph gallery__thumb"
             type="button"
             :aria-label="`Photo ${index + 1}`"
             :aria-current="index === photoIndex"
             @click="photoIndex = index"
           >
-            <img :src="url" alt="" />
+            <ItemVisual :item="item" :photo-index="index" />
           </button>
         </div>
       </div>

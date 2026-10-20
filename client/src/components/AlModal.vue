@@ -2,6 +2,7 @@
 // A reusable pop-up dialog. The parent decides when it is open:
 //   <AlModal :open="showIt" title="Hello" @close="showIt = false"> ... </AlModal>
 import { nextTick, onUnmounted, ref, useId, watch } from 'vue'
+import AppIcon from './AppIcon.vue'
 
 const props = defineProps({
   open: { type: Boolean, required: true },
@@ -44,7 +45,7 @@ onUnmounted(() => document.body.classList.remove('overflow-hidden'))
         <header class="d-flex align-items-center justify-content-between gap-3 mb-3">
           <h2 :id="titleId" class="h5 mb-0">{{ title }}</h2>
           <button class="btn btn-ghost" type="button" aria-label="Close" @click="$emit('close')">
-            ✕
+            <AppIcon name="x" :size="20" />
           </button>
         </header>
         <slot />
@@ -71,7 +72,4 @@ onUnmounted(() => document.body.classList.remove('overflow-hidden'))
   background: var(--al-surface-2);
 }
 
-.al-modal__panel:focus {
-  outline: none;
-}
 </style>

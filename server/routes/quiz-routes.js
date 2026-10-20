@@ -5,8 +5,9 @@
 
 const express = require('express')
 const User = require('../models/User-model')
+const Transaction = require('../models/Transaction-model')
 const { QUIZ_LENGTH, getQuestionPool, questionsForDay } = require('../data/questions')
-const { dayKey, currentStreak, changePearls } = require('../logic/gamification')
+const { dayKey, currentStreak, QUIZ_STREAK_BONUSES } = require('../logic/gamification')
 
 const router = express.Router()
 
@@ -44,7 +45,7 @@ router.get('/', async (req, res) => {
     }
 
     return res.status(200).json({
-      questions: quiz.questions.map(({ id, emoji, question, answers, photo }) => ({ id, emoji, question, answers, photo })),
+      questions: quiz.questions.map(({ id, icon, question, answers, photo }) => ({ id, icon, question, answers, photo })),
       doneToday: user.quiz.lastDay === today,
       streak: currentStreak(user),
     })
@@ -95,9 +96,6 @@ router.post('/submit', async (req, res) => {
   }
 
   try {
-    const user = await User.findById(req.session.userId)
-    if (!user) return res.status(404).json({ message: 'User not found.' })
-
     const results = quiz.questions.map((question) => {
       const chosen = quiz.answers[question.id]
       return { id: question.id, chosen, correct: question.correct, isCorrect: chosen === question.correct, fact: question.fact }
@@ -105,25 +103,48 @@ router.post('/submit', async (req, res) => {
     const score = results.filter((result) => result.isCorrect).length
     const total = results.length
 
-    let reward = 0
-    if (user.quiz.lastDay !== today) {
-      reward = score * PEARLS_PER_CORRECT_ANSWER
-      user.quiz.streak = currentStreak(user) + 1
-      user.quiz.lastDay = today
-      user.quiz.scores.push({ score, total, reward })
-      await changePearls(user, {
-        type: 'reward',
-        label: `Daily quiz: ${score}/${total} correct`,
-        amount: reward,
-        xp: score * XP_PER_CORRECT_ANSWER,
-      })
-    }
+    const outcome = await User.db.transaction(async (session) => {
+      const user = await User.findById(req.session.userId).session(session)
+      if (!user) return null
+      const practice = user.quiz.lastDay === today
+      let reward = 0
+      let streakBonus = 0
+      if (!practice) {
+        user.quiz.streak = currentStreak(user) + 1
+        streakBonus = QUIZ_STREAK_BONUSES[user.quiz.streak] || 0
+        const answerReward = score * PEARLS_PER_CORRECT_ANSWER
+        reward = answerReward + streakBonus
+        user.quiz.lastDay = today
+        user.quiz.scores.push({ score, total, reward })
+        user.pearls += reward
+        user.xp += score * XP_PER_CORRECT_ANSWER
+        await user.save({ session })
+        const entries = [{
+          user: user._id,
+          type: 'reward',
+          label: `Daily quiz: ${score}/${total} correct`,
+          amount: answerReward,
+        }]
+        if (streakBonus > 0) entries.push({
+          user: user._id,
+          type: 'reward',
+          label: `${user.quiz.streak}-day quiz streak bonus`,
+          amount: streakBonus,
+        })
+        await Transaction.create(entries, { session, ordered: true })
+      }
+      return { user, reward, streakBonus, practice }
+    })
+    if (!outcome) return res.status(404).json({ message: 'User not found.' })
+    const { user, reward, streakBonus, practice } = outcome
     req.session.quiz = null // the next GET can start a practice attempt
 
     return res.status(200).json({
       score,
       total,
       reward,
+      streakBonus,
+      practice,
       results,
       pearls: user.pearls,
       xp: user.xp,

@@ -15,8 +15,8 @@ const DIRT_PER_FISH_PER_HOUR = 0.1 // plus this much for every fish in it
 const HEALTH_RECOVERY_PER_HOUR = 2
 
 // Decorations that change pH over time, as in a real tank. Each piece moves pH by
-// `perHour` every hour (up to PH_ITEM_MAX_PIECES of each count) and stops at `limit`.
-// The slider on the tank page still sets pH instantly.
+// `perHour` every hour (up to PH_ITEM_MAX_PIECES of each count).
+// Effects stop at the chosen target or the item's physical limit, whichever comes first.
 //   driftwood, almond leaves: release tannins that lower pH (leaves work a little faster)
 //   crushed coral: slowly dissolves and raises pH
 const PH_ITEMS = {
@@ -80,6 +80,7 @@ function simulateTank(tank, now = new Date()) {
 
   const hours = Math.min(hoursPassed, MAX_HOURS)
   const conditions = tank.conditions
+  const targetPh = tank.targets?.ph ?? 7
   const decorations = tank.decorations || []
   const plants = Math.min(
     PLANT_MAX_COUNTED,
@@ -115,16 +116,23 @@ function simulateTank(tank, now = new Date()) {
 
     for (const { perHour, limit, pieces } of phEffects) {
       const change = perHour * pieces
-      if (change < 0 && conditions.ph > limit) conditions.ph = Math.max(limit, conditions.ph + change)
-      if (change > 0 && conditions.ph < limit) conditions.ph = Math.min(limit, conditions.ph + change)
+      if (change < 0) {
+        const stop = Math.max(limit, targetPh)
+        if (conditions.ph > stop) {
+          conditions.ph = Math.max(stop, Math.round((conditions.ph + change) * 100) / 100)
+        }
+      } else {
+        const stop = Math.min(limit, targetPh)
+        if (conditions.ph < stop) {
+          conditions.ph = Math.min(stop, Math.round((conditions.ph + change) * 100) / 100)
+        }
+      }
     }
   }
 
   // Two decimals keep each hourly drop exact (plants make it e.g. 0.54), so a page that
   // refreshes every hour dirties the water at the same rate as one long catch-up.
   conditions.waterQuality = Math.round(conditions.waterQuality * 100) / 100
-  // Two decimals keeps every 0.02 step exact (no 6.9799999) without losing small hourly drops.
-  conditions.ph = Math.round(conditions.ph * 100) / 100
 
   // Only move the clock forward by whole hours, so the leftover minutes count next time.
   // After a very long break, jump straight to now.

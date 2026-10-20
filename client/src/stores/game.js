@@ -94,10 +94,14 @@ function errorMessage(error, fallback) {
 export function setUser(user) {
   if (user) game.user = { id: user.id, name: user.name, email: user.email }
 }
+export async function saveProfile(changes) {
+  const { data } = await LoginApi.patch('/auth/profile', changes)
+  setUser(data.user)
+  return data
+}
 
 
-const pendingConditions = {}
-const pendingNicknames = {}
+const pendingTargets = {}
 const pendingPositions = {}
 let tankRevision = 0
 // ---- Loading from the server ----
@@ -105,12 +109,12 @@ let tankRevision = 0
 function fromServer(tank) {
   return {
     ...tank,
-    conditions: { ...tank.conditions, ...pendingConditions[tank._id] },
+    conditions: { ...tank.conditions },
+    targets: { ...tank.targets, ...pendingTargets[tank._id] },
     id: tank._id,
     fish: tank.fish.map((fish) => ({
       ...fish,
       id: fish._id,
-      nickname: pendingNicknames[fish._id]?.nickname ?? fish.nickname,
     })),
     decorations: tank.decorations.map((decoration) => ({
       ...decoration,
@@ -122,6 +126,7 @@ function fromServer(tank) {
 
 // Replace one tank with the updated copy the server sent back.
 function putTank(serverTank) {
+  tankRevision += 1
   const tank = fromServer(serverTank)
   const index = game.tanks.findIndex((t) => t.id === tank.id)
   if (index >= 0) game.tanks[index] = tank
@@ -219,7 +224,6 @@ function forShop(product) {
     category: product.category,
     name: product.name,
     sci: product.sci,
-    emoji: product.emoji,
     price: product.price,
     temperament: product.temperament,
     care: product.care,
@@ -285,6 +289,17 @@ export function getTank(id) {
   return game.tanks.find((tank) => tank.id === id)
 }
 
+export async function createTank(name) {
+  try {
+    const { data } = await LoginApi.post('/api/tanks', { name: name.trim() })
+    putTank(data.tank)
+    game.currentTankId = data.tank._id
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, message: errorMessage(error, 'Unable to create the tank.') }
+  }
+}
+
 // The different species living in a tank (each species listed once).
 // Dead fish (health 0) are left out: they cannot clash with new fish.
 export function tankSpecies(tank) {
@@ -312,42 +327,59 @@ export function safeRange(tank) {
   }
 }
 
-// The slider moves straight away; the new value is saved once the user stops dragging.
-const conditionTimers = {}
+// Targets move immediately; actual conditions only change through care or simulation.
+const targetTimers = {}
+const savedTargets = {}
+const targetSaves = {}
 
-export function setCondition(tankId, key, value) {
-  getTank(tankId).conditions[key] = value
-  pendingConditions[tankId] = { ...pendingConditions[tankId], [key]: value }
+export function setTarget(tankId, key, value) {
+  const tank = getTank(tankId)
+  if (!savedTargets[tankId]) savedTargets[tankId] = { ...tank.targets }
+  tank.targets[key] = value
+  pendingTargets[tankId] = { ...pendingTargets[tankId], [key]: value }
   tankRevision += 1
-  clearTimeout(conditionTimers[tankId])
-  conditionTimers[tankId] = setTimeout(async () => {
-    const changes = pendingConditions[tankId]
-    try {
-      const { data } = await LoginApi.patch(`/api/tanks/${tankId}/conditions`, changes)
-      if (pendingConditions[tankId] === changes) delete pendingConditions[tankId]
-      tankRevision += 1
-      putTank(data.tank)
-    } catch (error) {
-      if (pendingConditions[tankId] === changes) delete pendingConditions[tankId]
-      notify(errorMessage(error, 'Unable to save the tank conditions.'), true)
-    }
-  }, CONDITION_SAVE_DELAY)
+  clearTimeout(targetTimers[tankId])
+  targetTimers[tankId] = setTimeout(() => saveTargets(tankId), CONDITION_SAVE_DELAY)
 }
 
-export async function renameFish(tankId, fishId, nickname) {
-  const fish = getTank(tankId).fish.find((f) => f.id === fishId)
-  if (!fish) return
-  const changes = { nickname: nickname.trim().slice(0, 20) }
-  fish.nickname = changes.nickname
-  pendingNicknames[fishId] = changes
-  tankRevision += 1
+// Care and purchases must use the target just chosen, even before the debounce ends.
+async function saveTargets(tankId) {
+  clearTimeout(targetTimers[tankId])
+  if (targetSaves[tankId]) {
+    const saved = await targetSaves[tankId]
+    return pendingTargets[tankId] ? saveTargets(tankId) : saved
+  }
+  const changes = pendingTargets[tankId]
+  if (!changes) return true
+  targetSaves[tankId] = (async () => {
+    try {
+      const { data } = await LoginApi.patch(`/api/tanks/${tankId}/targets`, changes)
+      savedTargets[tankId] = { ...data.tank.targets }
+      if (pendingTargets[tankId] === changes) delete pendingTargets[tankId]
+      putTank(data.tank)
+      return true
+    } catch (error) {
+      if (pendingTargets[tankId] === changes) {
+        delete pendingTargets[tankId]
+        getTank(tankId).targets = { ...savedTargets[tankId] }
+      }
+      notify(errorMessage(error, 'Unable to save the tank targets.'), true)
+      return false
+    } finally {
+      delete targetSaves[tankId]
+    }
+  })()
+  const saved = await targetSaves[tankId]
+  return pendingTargets[tankId] && pendingTargets[tankId] !== changes ? saveTargets(tankId) : saved
+}
+
+export async function saveFish(tankId, fishId, changes) {
   try {
-    await LoginApi.patch(`/api/tanks/${tankId}/fish/${fishId}`, changes)
+    const { data } = await LoginApi.patch(`/api/tanks/${tankId}/fish/${fishId}`, changes)
+    putTank(data.tank)
+    return { ok: true }
   } catch (error) {
-    notify(errorMessage(error, 'Unable to save the nickname.'), true)
-  } finally {
-    if (pendingNicknames[fishId] === changes) delete pendingNicknames[fishId]
-    tankRevision += 1
+    return { ok: false, message: errorMessage(error, 'Unable to save the fish details.') }
   }
 }
 
@@ -496,6 +528,7 @@ export const totals = computed(() => {
 // server says the fish does not suit the tank. Send force to buy it anyway.
 export async function buyItem(item, tankId, quantity = 1, force = false) {
   try {
+    if (!await saveTargets(tankId)) return { ok: false, message: 'Save the tank targets before buying an item.' }
     const { data } = await LoginApi.post('/api/game/buy', { itemId: item.id, tankId, quantity, force })
     putTank(data.tank)
     game.pearls = data.pearls
@@ -514,7 +547,7 @@ export function getTasks() {
   return DAILY_TASKS.map((task) => ({ ...task, done: game.tasksDone.includes(task.id) }))
 }
 
-// The care animation playing right now (food dropping, sponge, thermometer).
+// The care animation playing right now (food dropping, bubbles, thermometer).
 // TankScene.vue watches this and draws it over the matching tank.
 // "run" goes up by one each time, so doing the same task twice restarts the animation.
 const EFFECT_TIME = 2600 // ms; a little longer than the longest animation in TankScene.vue
@@ -534,6 +567,7 @@ function playEffect(tankId, type) {
 // Returns the pearls earned, or null if the request failed.
 export async function doTask(taskId, tankId) {
   try {
+    if (!await saveTargets(tankId)) return null
     const { data } = await LoginApi.post(`/api/game/tasks/${taskId}`, { tankId })
     putTank(data.tank)
     playEffect(tankId, taskId)
