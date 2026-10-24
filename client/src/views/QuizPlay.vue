@@ -4,9 +4,10 @@
 // by the server, which also does the final marking.
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { answerQuestion, finishQuiz, getQuizQuestions, notify } from '../stores/game'
+import { achievements, answerQuestion, finishQuiz, getQuizQuestions, notify } from '../stores/game'
 import PearlCount from '../components/PearlCount.vue'
 import AppIcon from '../components/AppIcon.vue'
+import BadgeMedal from '../components/BadgeMedal.vue'
 
 const questions = ref([])
 const loading = ref(true)
@@ -31,6 +32,13 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+})
+
+// After a real (not practice) quiz: did today's streak reach a new tier of the Quiz Streak badge?
+const streakBadge = computed(() => achievements.value.find((badge) => badge.id === 'streak'))
+const newStreakTier = computed(() => {
+  if (practice.value || !streakBadge.value) return null
+  return streakBadge.value.tiers.find((step) => step.target === streak.value) || null
 })
 
 const question = computed(() => questions.value[index.value])
@@ -97,9 +105,16 @@ function answerClass(answerIndex) {
       <p v-if="reward > 0" class="fs-5 mt-2">You earned <PearlCount :amount="reward" signed /></p>
       <p v-else-if="practice" class="text-muted-al mt-2">Practice round: no pearls this time.</p>
       <p v-else class="text-muted-al mt-2">No correct answers today. Keep practising for tomorrow.</p>
+      <p v-if="!practice" class="streak-line">
+        <AppIcon name="flame" :size="22" /> {{ streak }}-day streak
+      </p>
       <p v-if="streakBonus > 0" class="text-muted-al">
         Includes <PearlCount :amount="streakBonus" signed /> for your {{ streak }}-day streak.
       </p>
+      <div v-if="newStreakTier && streakBadge" class="new-badge mb-3">
+        <BadgeMedal :badge="streakBadge" :size="72" stars />
+        <p class="fw-bold mb-0">New badge: {{ newStreakTier.name }} Quiz Streak, "{{ newStreakTier.title }}"!</p>
+      </div>
       <div class="d-flex flex-wrap justify-content-center gap-2">
         <RouterLink class="btn btn-aqua" :to="{ name: 'quiz' }">Back to quiz hub</RouterLink>
         <RouterLink class="btn btn-ghost" :to="{ name: 'browse' }">Spend pearls</RouterLink>
@@ -176,6 +191,21 @@ function answerClass(answerIndex) {
 </template>
 
 <style scoped>
+.streak-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--al-warn);
+  font-weight: 800;
+}
+
+.new-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 
 .question-art {
   height: clamp(110px, 26vw, 200px);

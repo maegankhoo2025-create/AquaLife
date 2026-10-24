@@ -111,6 +111,7 @@ router.post('/submit', async (req, res) => {
       let streakBonus = 0
       if (!practice) {
         user.quiz.streak = currentStreak(user) + 1
+        user.quiz.bestStreak = Math.max(user.quiz.bestStreak || 0, user.quiz.streak)
         streakBonus = QUIZ_STREAK_BONUSES[user.quiz.streak] || 0
         const answerReward = score * PEARLS_PER_CORRECT_ANSWER
         reward = answerReward + streakBonus

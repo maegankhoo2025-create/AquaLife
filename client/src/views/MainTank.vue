@@ -10,6 +10,7 @@ import {
   getItem,
   getTasks,
   healthLabel,
+  nextTankName,
   notify,
   refreshTank,
   removeDeadFish,
@@ -27,7 +28,7 @@ import ItemVisual from '../components/ItemVisual.vue'
 
 const tank = currentTank
 const safe = computed(() => safeRange(tank.value))
-const tasks = computed(() => getTasks())
+const tasks = computed(() => getTasks(tank.value.id))
 const showCreateTank = ref(false)
 const tankName = ref('')
 const creatingTank = ref(false)
@@ -40,14 +41,8 @@ const savingGoals = ref(false)
 const goalError = ref('')
 const busyTask = ref(null)
 const hasLivingFish = computed(() => tank.value.fish.some((fish) => fish.health > 0))
-const waterChange = computed(() => tank.value.maintenance?.waterChange)
-const changingWater = computed(() => Boolean(waterChange.value && new Date(waterChange.value.endsAt).getTime() > new Date(tank.value.progression?.asOf || 0).getTime()))
-const waterChangeCountdown = computed(() => {
-  if (!changingWater.value) return ''
-  const seconds = Math.max(0, Math.ceil((new Date(waterChange.value.endsAt).getTime() - now.value) / 1000))
-  if (!seconds) return 'Finishing…'
-  return `${Math.floor(seconds / 60)}m ${seconds % 60}s remaining`
-})
+// Cleaning is pointless when the water is already perfect, so its button is disabled then.
+const waterIsClean = computed(() => tank.value.conditions.waterQuality >= 100)
 
 watch(() => tank.value.id, (id) => {
   goalTankId.value = id
@@ -98,6 +93,13 @@ onUnmounted(() => {
   stopTimers()
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
+// Opens the "Create a tank" dialog with the next free name already filled in.
+function openCreateTank() {
+  tankName.value = nextTankName()
+  createError.value = ''
+  showCreateTank.value = true
+}
+
 async function submitTank() {
   if (creatingTank.value) return
   creatingTank.value = true
@@ -116,7 +118,7 @@ async function submitTank() {
 function taskLabel(task) {
   if (task.id === 'temp') return 'Check temperature'
   if (task.id === 'ph') return 'Check pH'
-  if (task.id === 'clean') return 'Partial change'
+  if (task.id === 'clean') return 'Clean tank'
   return 'Feed fish'
 }
 
@@ -137,16 +139,14 @@ const fishList = computed(() =>
 )
 
 async function runTask(task) {
-  if (busyTask.value || (task.id === 'clean' && changingWater.value)) return
+  if (busyTask.value || (task.id === 'clean' && waterIsClean.value)) return
   busyTask.value = task.id
   const id = tank.value.id
   const earned = await doTask(task.id, id)
   busyTask.value = null
   if (earned === null) return
   const label = taskLabel(task)
-  notify(task.id === 'clean'
-    ? `Water change started.${earned > 0 ? ` +${earned} pearls` : ''}`
-    : earned > 0 ? `${label}: +${earned} pearls` : `${label}: done`)
+  notify(earned > 0 ? `${label}: +${earned} pearls` : `${label}: done`)
 }
 
 // The fish waiting for a "Remove this fish?" answer, or null when the dialog is closed.
@@ -209,7 +209,7 @@ async function clearDeadFish() {
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
       <h1 class="al-title">My aquarium</h1>
       <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-ghost" type="button" @click="showCreateTank = true">New tank</button>
+        <button class="btn btn-ghost" type="button" @click="openCreateTank"><AppIcon name="plus" /> New tank</button>
         <RouterLink class="btn btn-aqua" :to="{ name: 'browse' }">
           <AppIcon name="plus" /> Shop
         </RouterLink>
@@ -241,15 +241,15 @@ async function clearDeadFish() {
         </section>
 
         <div class="row g-2">
-          <div v-for="task in tasks" :key="task.id" class="col-12 col-sm-4">
-            <button class="btn btn-ghost w-100 h-100" type="button" :disabled="busyTask !== null || (task.id === 'clean' && changingWater)" @click="runTask(task)">
+          <div v-for="task in tasks" :key="task.id" class="col-6 col-md-3">
+            <button class="btn btn-ghost task-button w-100 h-100" type="button" :disabled="busyTask !== null || (task.id === 'clean' && waterIsClean)" @click="runTask(task)">
               <AppIcon :name="task.icon" />
               {{ taskLabel(task) }}
               <span class="d-block small text-muted-al">
-                {{ task.done ? 'Rewarded today' : `+${task.reward} pearls` }}
+                {{ !hasLivingFish ? 'Add fish to earn' : task.done ? 'Rewarded today' : `+${task.reward} pearls` }}
               </span>
               <span v-if="task.id === 'clean'" class="d-block small text-muted-al">
-                {{ changingWater ? waterChangeCountdown : '30 minutes' }}
+                {{ waterIsClean ? 'Water is clean' : '+25 water quality' }}
               </span>
             </button>
           </div>
@@ -276,6 +276,7 @@ async function clearDeadFish() {
               :forecast="tank.progression?.[key]"
               :now="now"
               :has-living-fish="hasLivingFish"
+              :tank="tank"
             />
           </div>
           <p v-if="tank.progression?.asOf" class="small text-muted-al mt-3 mb-0" title="Readings refresh about once a minute while this page is visible.">
@@ -387,6 +388,15 @@ async function clearDeadFish() {
 </template>
 
 <style scoped>
+.task-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.85rem 0.5rem;
+}
+
 .tank-item-art {
   width: 40px;
   height: 40px;

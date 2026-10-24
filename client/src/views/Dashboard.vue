@@ -6,8 +6,11 @@ import {
   formatDate,
   game,
   getTasks,
+  tanksNeedingCare,
   level,
   loadCare,
+  LOW_PEARLS,
+  lowOnPearls,
   quizDoneToday,
   xpInLevel,
   xpPercent,
@@ -17,8 +20,20 @@ import PearlCount from '../components/PearlCount.vue'
 import TankSwiper from '../components/TankSwiper.vue'
 import AppIcon from '../components/AppIcon.vue'
 
-const tasks = computed(() => getTasks())
+// One row per tank with living fish, holding that tank's four tasks.
+const tankTasks = computed(() =>
+  tanksNeedingCare().map((tank) => {
+    const tasks = getTasks(tank.id)
+    return { tank, tasks, doneCount: tasks.filter((task) => task.done).length }
+  }),
+)
 const recentActivity = computed(() => game.history.slice(0, 4))
+// True while at least one care task can still earn pearls today.
+const tasksLeft = computed(() => tankTasks.value.some((row) => row.doneCount < row.tasks.length))
+
+function openTank(tankId) {
+  game.currentTankId = tankId
+}
 
 const careChecks = computed(() => care.today?.checks || [])
 const fullDays = computed(() => care.days.filter((entry) => entry.recorded && entry.met === entry.total).length)
@@ -78,6 +93,24 @@ onUnmounted(() => {
       </div>
     </section>
 
+    <!-- Shown while the balance is below LOW_PEARLS -->
+    <section v-if="lowOnPearls" class="al-card low-pearls mb-3" role="alert">
+      <AppIcon name="pearl" :size="36" />
+      <div class="al-grow">
+        <h2 class="h5 mb-1">Oh no, you're running out of pearls!</h2>
+        <p class="small mb-0">
+          You have fewer than {{ LOW_PEARLS }} pearls.
+          <template v-if="tasksLeft || !quizDoneToday">Care for your tank and take the daily quiz to earn more.</template>
+          <template v-else>You've done everything for today. Come back tomorrow to earn more.</template>
+        </p>
+      </div>
+      <!-- Each button only shows while that way of earning is still open today -->
+      <div v-if="tasksLeft || !quizDoneToday" class="d-flex flex-wrap gap-2">
+        <RouterLink v-if="tasksLeft" class="btn btn-aqua btn-sm" :to="{ name: 'main-tank' }">Do care tasks</RouterLink>
+        <RouterLink v-if="!quizDoneToday" class="btn btn-ghost btn-sm" :to="{ name: 'quiz-play' }">Take the quiz</RouterLink>
+      </div>
+    </section>
+
     <div class="row g-3">
       <!-- Tank preview -->
       <section class="col-12 col-lg-8">
@@ -113,12 +146,27 @@ onUnmounted(() => {
           <section class="col-12 col-md-6 col-lg-12">
             <div class="al-card h-100">
               <h2 class="h5">Today's care tasks</h2>
-              <ul class="al-list">
-                <li v-for="task in tasks" :key="task.id">
-                  <AppIcon :name="task.icon" />
-                  <span class="al-grow">{{ task.label }}</span>
-                  <span v-if="task.done" class="al-chip al-chip--ok">Done</span>
-                  <PearlCount v-else :amount="task.reward" signed />
+              <p v-if="tankTasks.length === 0" class="text-muted-al mb-0">Add fish to a tank to get daily care tasks.</p>
+              <ul v-else class="al-list">
+                <li v-for="row in tankTasks" :key="row.tank.id">
+                  <span class="al-grow">
+                    <strong class="d-block">{{ row.tank.name }}</strong>
+                    <span class="task-icons">
+                      <span
+                        v-for="task in row.tasks"
+                        :key="task.id"
+                        class="task-icon"
+                        :class="{ 'task-icon--done': task.done }"
+                        :title="`${task.label}: ${task.done ? 'done' : `+${task.reward} pearls`}`"
+                      >
+                        <AppIcon :name="task.done ? 'check' : task.icon" :size="16" />
+                      </span>
+                    </span>
+                  </span>
+                  <span class="al-chip" :class="row.doneCount === row.tasks.length ? 'al-chip--ok' : ''">
+                    {{ row.doneCount }} / {{ row.tasks.length }}
+                  </span>
+                  <RouterLink class="btn btn-ghost btn-sm" :to="{ name: 'main-tank' }" @click="openTank(row.tank.id)">Open</RouterLink>
                 </li>
               </ul>
             </div>
@@ -186,6 +234,36 @@ onUnmounted(() => {
 
 
 <style scoped>
+.task-icons {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+.task-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--al-border);
+  border-radius: 50%;
+  color: var(--al-muted);
+}
+.task-icon--done {
+  border-color: var(--al-ok);
+  background: var(--al-ok);
+  color: var(--al-bg);
+}
+.low-pearls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  border-color: var(--al-warn);
+  background: color-mix(in srgb, var(--al-warn) 10%, var(--al-surface-1));
+}
+.low-pearls .al-grow {
+  flex-basis: 14rem;
+}
 .care-days {
   display: grid;
   grid-template-columns: repeat(14, minmax(0, 1fr));

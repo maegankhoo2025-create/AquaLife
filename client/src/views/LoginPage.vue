@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import LoginApi from '../LoginApi'
 import { useRoute, useRouter } from 'vue-router'
-import AppIcon from '../components/AppIcon.vue'
+import AquaLogo from '../components/AquaLogo.vue'
 // This lets this page tell Vue Router to open a different page.
 const router = useRouter()
 const route = useRoute()
@@ -90,7 +90,9 @@ async function handleSubmit() {
   <main class="container-fluid">
     <div class="row login">
       <div class="col-12 col-lg-6 login__art">
-        <AppIcon class="login__icon" name="aquarium" :size="80" />
+        <!-- Bubbles drift up behind the logo (switched off by Reduce motion) -->
+        <span v-for="n in 6" :key="n" class="login__bubble" :class="`login__bubble--${n}`" aria-hidden="true"></span>
+        <AquaLogo class="login__icon" :size="120" />
         <p class="login__brand mb-0">AquaLife</p>
         <p class="login__tagline mb-0">Learn fish care by keeping a virtual aquarium.</p>
       </div>
@@ -200,11 +202,50 @@ async function handleSubmit() {
   min-height: clamp(150px, 30vh, 260px);
   padding: 1.5rem;
   text-align: center;
-  background: var(--al-surface-1);
+  position: relative;
+  overflow: hidden;
+  /* Light from the surface fading into deep water */
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, color-mix(in srgb, var(--al-aqua) 22%, transparent), transparent),
+    linear-gradient(180deg, var(--al-surface-2), var(--al-bg));
 }
 
 .login__icon {
-  color: var(--al-aqua);
+  position: relative; /* stays in front of the bubbles */
+  filter: drop-shadow(0 8px 24px rgb(79 216 224 / 35%));
+  animation: login-float 4s ease-in-out infinite;
+}
+
+.login__brand,
+.login__tagline {
+  position: relative;
+}
+
+.login__bubble {
+  position: absolute;
+  bottom: -40px;
+  border: 2px solid color-mix(in srgb, var(--al-aqua) 55%, transparent);
+  border-radius: 50%;
+  animation: login-rise 9s linear infinite;
+}
+
+/* Each bubble has its own position, size and start time */
+.login__bubble--1 { left: 12%; width: 14px; height: 14px; animation-delay: 0s; }
+.login__bubble--2 { left: 28%; width: 24px; height: 24px; animation-delay: 3s; }
+.login__bubble--3 { left: 45%; width: 10px; height: 10px; animation-delay: 6s; }
+.login__bubble--4 { left: 62%; width: 18px; height: 18px; animation-delay: 1.5s; }
+.login__bubble--5 { left: 78%; width: 12px; height: 12px; animation-delay: 4.5s; }
+.login__bubble--6 { left: 90%; width: 20px; height: 20px; animation-delay: 7.5s; }
+
+@keyframes login-rise {
+  from { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  to { transform: translateY(-110vh); opacity: 0; }
+}
+
+@keyframes login-float {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-8px) rotate(3deg); }
 }
 
 .login__brand {

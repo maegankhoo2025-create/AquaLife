@@ -53,6 +53,11 @@
 
 body {
   overflow-x: hidden; /* safety net: the page itself must never scroll sideways */
+  /* Soft light from the top, like sunlight reaching deep water */
+  background:
+    radial-gradient(ellipse 90% 50% at 50% -10%, color-mix(in srgb, var(--al-aqua) 12%, transparent), transparent),
+    var(--al-bg);
+  background-attachment: fixed;
 }
 
 h1,
@@ -94,6 +99,11 @@ h5,
 .btn {
   --bs-btn-box-shadow: none;
   --bs-btn-focus-box-shadow: none;
+  /* Flexbox centres the text (and any icon) vertically, whatever the button's height */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
 }
 
 .btn,
@@ -209,6 +219,13 @@ h5,
   border: 1px solid var(--al-border);
   border-radius: var(--al-radius);
   padding: clamp(0.9rem, 0.6rem + 1.2vw, 1.5rem);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 18%);
+}
+
+/* Card headings: same gap below every heading */
+.al-card > h2,
+.al-card > .h5 {
+  margin-bottom: 0.85rem;
 }
 
 .al-card--raised {

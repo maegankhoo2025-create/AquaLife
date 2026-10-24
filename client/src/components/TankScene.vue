@@ -425,6 +425,7 @@ function onDecorationKey(event, decoration) {
       :aria-pressed="decorating"
       @click="decorating = !decorating"
     >
+      <AppIcon :name="decorating ? 'check' : 'leaf'" :size="18" />
       {{ decorating ? 'Done decorating' : 'Decorate' }}
     </button>
     <p v-if="decorating" class="scene__hint small text-muted-al" role="status">

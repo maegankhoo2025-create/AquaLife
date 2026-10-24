@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import PearlCount from '../components/PearlCount.vue'
 import TankScene from '../components/TankScene.vue'
+import UserAvatar from '../components/UserAvatar.vue'
 import { conditionReading, formatDate, game, getItem } from '../stores/game'
 import {
   social, loadSocial, loadInvitation, requestFriend, answerRequest, acceptInvitation,
@@ -93,12 +94,6 @@ async function sendComment() {
             <input id="friend-email" v-model="email" type="email" class="form-control friend-email" maxlength="254" required autocomplete="off" />
             <button type="submit" class="btn btn-aqua" :disabled="social.busy">Send request</button>
           </form>
-          <div v-if="social.outgoing.length" class="mt-3">
-            <h3 class="h6">Awaiting a response</h3>
-            <ul class="mb-0">
-              <li v-for="entry in social.outgoing" :key="entry.id">{{ entry.user.name }} (request pending)</li>
-            </ul>
-          </div>
         </section>
       </div>
       <div class="col-12 col-lg-6">
@@ -119,24 +114,44 @@ async function sendComment() {
       </div>
     </div>
 
-    <section class="al-card mb-3" aria-labelledby="requests-heading">
-      <h2 id="requests-heading" class="h5">Friend requests <span class="small text-muted-al">{{ social.incoming.length }}</span></h2>
-      <p v-if="!social.incoming.length" class="text-muted-al mb-0">No incoming requests.</p>
-      <ul v-else class="al-list mb-0">
-        <li v-for="entry in social.incoming" :key="entry.id" class="d-flex flex-wrap align-items-center gap-2">
-          <span class="al-grow">{{ entry.user.name }} wants to be your friend.</span>
-          <button type="button" class="btn btn-aqua" :disabled="social.busy" @click="answerRequest(entry.id, 'accept')">Accept</button>
-          <button type="button" class="btn btn-ghost" :disabled="social.busy" @click="answerRequest(entry.id, 'reject')">Reject</button>
-        </li>
-      </ul>
-    </section>
+    <!-- Requests sent to me (left) and requests I sent that are not accepted yet (right) -->
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-lg-6">
+        <section class="al-card h-100" aria-labelledby="requests-heading">
+          <h2 id="requests-heading" class="h5">Friend requests <span class="small text-muted-al">{{ social.incoming.length }}</span></h2>
+          <p v-if="!social.incoming.length" class="text-muted-al mb-0">No incoming requests.</p>
+          <ul v-else class="al-list mb-0">
+            <li v-for="entry in social.incoming" :key="entry.id" class="d-flex flex-wrap align-items-center gap-2">
+              <UserAvatar :src="entry.user.avatar" :name="entry.user.name" :size="36" />
+              <span class="al-grow">{{ entry.user.name }} wants to be your friend.</span>
+              <button type="button" class="btn btn-aqua" :disabled="social.busy" @click="answerRequest(entry.id, 'accept')">Accept</button>
+              <button type="button" class="btn btn-ghost" :disabled="social.busy" @click="answerRequest(entry.id, 'reject')">Reject</button>
+            </li>
+          </ul>
+        </section>
+      </div>
+      <div class="col-12 col-lg-6">
+        <section class="al-card h-100" aria-labelledby="sent-heading">
+          <h2 id="sent-heading" class="h5">Sent requests <span class="small text-muted-al">{{ social.outgoing.length }}</span></h2>
+          <p v-if="!social.outgoing.length" class="text-muted-al mb-0">No requests waiting. People appear here until they accept.</p>
+          <ul v-else class="al-list mb-0">
+            <li v-for="entry in social.outgoing" :key="entry.id">
+              <UserAvatar :src="entry.user.avatar" :name="entry.user.name" :size="36" />
+              <span class="al-grow fw-bold">{{ entry.user.name }}</span>
+              <span class="al-chip al-chip--warn">Waiting</span>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
 
     <section class="al-card mb-3" aria-labelledby="friends-heading">
       <h2 id="friends-heading" class="h5">Your friends <span class="small text-muted-al">{{ social.friends.length }}</span></h2>
       <p v-if="!social.friends.length" class="text-muted-al mb-0">No friends yet. Send a request or share your invitation above.</p>
       <ul v-else class="al-list mb-0">
         <li v-for="entry in social.friends" :key="entry.id" class="d-flex flex-wrap align-items-center gap-2">
-          <span class="al-grow"><AppIcon name="user" /> {{ entry.user.name }}</span>
+          <UserAvatar :src="entry.user.avatar" :name="entry.user.name" :size="36" />
+          <span class="al-grow fw-bold">{{ entry.user.name }}</span>
           <button type="button" class="btn btn-ghost" :disabled="social.visiting || social.busy" @click="openVisit(entry.user.id)">
             Visit tanks <AppIcon name="arrow-right" :size="16" />
           </button>
@@ -147,7 +162,10 @@ async function sendComment() {
     <p v-if="social.visiting" class="al-card" role="status">Loading your friend’s aquarium…</p>
     <section v-else-if="social.visit" class="al-card mb-3" aria-labelledby="visit-heading">
       <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-        <h2 id="visit-heading" class="h4 mb-0">{{ social.visit.friend.name }}’s aquarium</h2>
+        <h2 id="visit-heading" class="h4 mb-0 d-flex align-items-center gap-2">
+          <UserAvatar :src="social.visit.friend.avatar" :name="social.visit.friend.name" :size="40" />
+          {{ social.visit.friend.name }}’s aquarium
+        </h2>
         <button type="button" class="btn btn-ghost" :disabled="social.busy" @click="social.visit = null">Close visit</button>
       </div>
       <p class="small text-muted-al">You can look around, but only the owner can feed fish, change goals or rearrange the aquarium.</p>

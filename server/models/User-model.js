@@ -87,6 +87,7 @@ const userSchema = new mongoose.Schema(
 
     quiz: {
       streak: { type: Number, default: 0 },
+      bestStreak: { type: Number, default: 0 }, // longest streak ever, so streak badges are kept
       lastDay: { type: String, default: '' }, // YYYY-MM-DD of the last rewarded quiz
       scores: [
         {

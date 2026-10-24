@@ -88,7 +88,7 @@ router.get('/:id/compatibility/:speciesId', async (req, res) => {
 })
 
 
-// POST /api/tanks  body: { name } -> create a tank
+// POST /api/tanks  body: { name, forItemId? } -> create a tank
 router.post('/', async (req, res) => {
   if (!requireLogin(req, res)) return
 
@@ -100,11 +100,20 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ message: 'Tank names can have up to 40 characters.' })
   }
 
+  // Optional: forItemId sets up the new tank for one fish species,
+  // with its water and goals in the middle of that fish's safe range.
+  const newTank = { owner: req.session.userId, name: name.trim() }
+  if (req.body.forItemId !== undefined) {
+    const species = getSpecies(req.body.forItemId)
+    if (!species) return res.status(400).json({ message: 'Unknown fish species.' })
+    const temperature = Math.round((species.temp[0] + species.temp[1]) / 2)
+    const ph = Math.round(((species.ph[0] + species.ph[1]) / 2) * 10) / 10
+    newTank.conditions = { temperature, ph, waterQuality: 100 }
+    newTank.targets = { temperature, ph, waterQuality: 100 }
+  }
+
   try {
-    const tank = await Tank.createTank({
-      owner: req.session.userId,
-      name: name.trim(),
-    })
+    const tank = await Tank.createTank(newTank)
     return res.status(201).json({ message: 'Tank created.', tank })
   } catch (error) {
     console.error('Create tank failed:', error)
