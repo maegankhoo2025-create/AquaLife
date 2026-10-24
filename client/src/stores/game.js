@@ -595,7 +595,7 @@ export async function doTask(taskId, tankId) {
   try {
     const { data } = await LoginApi.post(`/api/game/tasks/${taskId}`, { tankId })
     putTank(data.tank)
-    playEffect(tankId, taskId)
+    if (taskId !== 'ph') playEffect(tankId, taskId)
     game.pearls = data.pearls
     game.xp = data.xp
     refreshStats().catch((error) => console.error('Unable to refresh stats:', error))

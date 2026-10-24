@@ -115,6 +115,7 @@ async function submitTank() {
 
 function taskLabel(task) {
   if (task.id === 'temp') return 'Check temperature'
+  if (task.id === 'ph') return 'Check pH'
   if (task.id === 'clean') return 'Partial change'
   return 'Feed fish'
 }

@@ -13,7 +13,6 @@ const links = [
   { to: { name: 'quiz' }, label: 'Quiz' },
   { to: { name: 'history' }, label: 'History' },
   { to: { name: 'friends' }, label: 'Friends' },
-  { to: { name: 'profile' }, label: 'Profile' },
 ]
 
 // Whether the hamburger menu is open (only matters below the lg breakpoint).
@@ -38,6 +37,13 @@ watch(
       <!-- On small screens the pearl balance sits beside the hamburger button -->
       <div class="d-flex align-items-center gap-3 order-lg-last">
         <PearlCount :amount="game.pearls" />
+        <RouterLink class="profile-link" :to="{ name: 'profile' }" aria-label="Open profile">
+          <span class="profile-link__avatar">
+            <img v-if="game.user.avatar" :src="game.user.avatar" alt="" />
+            <span v-else>{{ game.user.name.charAt(0).toUpperCase() }}</span>
+          </span>
+          <span class="d-none d-sm-inline">Profile</span>
+        </RouterLink>
         <!-- From lg up there is no hamburger, so Log out sits here, right of the pearls -->
         <LogoutButton class="d-none d-lg-block" />
         <button
@@ -104,9 +110,46 @@ watch(
   border-color: var(--al-border);
 }
 
+.profile-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: var(--al-tap);
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--al-border);
+  border-radius: 999px;
+  color: var(--al-text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.profile-link__avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--al-aqua);
+  color: var(--al-bg);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.profile-link__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 @media (hover: hover) {
   .nav-link:hover {
     color: var(--al-text);
+  }
+
+  .profile-link:hover {
+    border-color: var(--al-aqua);
+    color: var(--al-aqua);
   }
 }
 </style>

@@ -64,6 +64,9 @@ const installed = computed(() => props.item?.category === 'equipment'
         <section v-if="item.effect" class="item-effect mb-3">
           <h3 class="h6 mb-1">Effect on your tank</h3>
           <p class="small mb-0">{{ item.effect.detail }}</p>
+          <p v-if="item.effect.condition" class="small mt-2 mb-0">
+            Reminder: review your {{ item.effect.condition === 'ph' ? 'pH' : item.effect.condition === 'waterQuality' ? 'water quality' : 'temperature' }} goal after installing this item.
+          </p>
         </section>
         <template v-if="item.speciesInfo">
   <p>Family: {{ item.speciesInfo.family || 'Unavailable' }}</p>

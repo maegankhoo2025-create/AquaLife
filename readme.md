@@ -68,7 +68,7 @@ The seed script adds missing products, including equipment, without deleting the
 
 1. Open the app. The account form starts in **Log in** mode.
 2. Enter an existing email/password, or use **Don't have an account? Sign up**.
-3. Registration requests a name, email and password. After **Create account**, the user is signed in immediately.
+3. Registration requests a name, email and password. New accounts start with 500 pearls. After **Create account**, the user is signed in immediately.
 4. Successful login or signup normally opens **Dashboard**.
 
 A friend invitation is the exception: authentication returns the recipient to its acceptance screen in Friends. The branch does not add a general-purpose return-to-any-original-page flow.
@@ -84,7 +84,7 @@ Pictures may be PNG, JPEG or WebP, up to 5 MiB. The browser center-crops the ima
 
 Profile updates preserve fields omitted from the request. Duplicate email addresses are rejected. Password hashes and invitation tokens are excluded from ordinary profile/session responses; this page does not add password changing or email verification.
 
-Achievement tiles have larger icons and explicit earned states. The existing **Reduce motion** preference controls aquarium movement. The reminder preference switches do not implement scheduled push or email notifications. Preferences and selected-tank choice remain browser-local settings.
+Achievement badges progressively gain color as fish, quiz-streak and friend milestones are reached. The existing **Reduce motion** preference controls aquarium movement. The reminder preference switches do not implement scheduled push or email notifications. Preferences and selected-tank choice remain browser-local settings.
 
 ## 4. Tanks, fish and installed items
 
@@ -178,13 +178,14 @@ pH materials keep working after the selected pH goal. Their effects weaken near 
 
 These rules use a fixed room temperature and fixed material strengths. The model does not measure real source-water hardness, buffering capacity, ammonia, nitrite or nitrate. Condition advice is available through the info controls; physical tanks require species-specific research and water testing.
 
-### Feed, change water and check temperature
+### Feed, care for water and check conditions
 
 | My Tank control | Action | First daily reward |
 | --- | --- | ---: |
-| Feed fish | Resets hunger for living fish in the selected tank. Rejects a tank without living fish. | 5 pearls and 5 XP |
-| Partial change | Starts a 30-minute water change supplying up to 25 quality points, limited by the goal. Ongoing waste reduces the net improvement. | 10 pearls and 10 XP |
-| Check temperature | Reads the current temperature without changing it. Counts toward the daily care check. | 5 pearls and 5 XP |
+| Feed fish | Resets hunger for living fish in the selected tank. Rejects a tank without living fish. | 10 pearls and 10 XP |
+| Partial change | Starts a 30-minute water change supplying up to 25 quality points, limited by the goal. Ongoing waste reduces the net improvement. | 20 pearls and 20 XP |
+| Check temperature | Reads the current temperature without changing it. Counts toward the daily care check. | 10 pearls and 10 XP |
+| Check pH | Reads the current pH without changing it. | 10 pearls and 10 XP |
 
 Each action type rewards once per user per Singapore calendar day, shared across tanks. **Rewarded today** means its daily reward is used; valid care can still be repeated. An active water change cannot be restarted, and a change cannot start when quality is already at or above the goal. The UI shows remaining time or **Finishing…**.
 
@@ -225,7 +226,7 @@ The care streak counts consecutive fully met recorded days ending today, within 
 3. Open an item for its description, care requirements, compatibility or tank effects.
 4. Set quantity and choose **Add to [tank]**.
 
-The shop uses one catalogue grid instead of repeating a recommended row. Fish, plants, materials and equipment share consistently sized illustration frames. Effect summaries explain what an item changes and its limits. The detail dialog separates **Not enough pearls** from the balance display. Already-installed equipment is disabled, and equipment quantity is one. Other items support quantities up to nine in the UI; the purchase API accepts one through ten.
+The shop uses one catalogue grid instead of repeating a recommended row. Fish, plants, materials and equipment share consistently sized illustration frames. Effect summaries explain what an item changes and its limits. The detail dialog separates **Not enough pearls** from the balance display and reminds players to review a condition goal when buying an item that affects it. Purchases that leave fewer than 100 pearls show a confirmation first. Already-installed equipment is disabled, and equipment quantity is one. Other items support quantities up to nine in the UI; the purchase API accepts one through ten.
 
 Compatibility checks use actual temperature and pH, including in empty tanks, and compare living tankmates. Dead fish are excluded from tankmate conflicts. Buying/removing fish refreshes local tank state so later compatibility checks use the updated stock. The existing **Add anyway** conflict flow remains available.
 
