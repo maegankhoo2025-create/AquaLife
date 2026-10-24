@@ -41,7 +41,7 @@ aqualife/
 | DELETE | /api/tanks/:id/fish/:fishId | Remove a fish; refund living fish only |
 | DELETE | /api/tanks/:id/decorations/:decorationId | Remove an installed item and stop its future effect |
 | DELETE | /api/tanks/:id | Delete a tank |
-| POST | /api/game/tasks/:taskId | Feed, start a 30-minute partial water change, or check the thermometer |
+| POST | /api/game/tasks/:taskId | Feed, start a 30-minute partial water change, or check temperature/pH |
 | GET | /api/game/care | Record today's care snapshot and return the rolling 14-day history |
 | PATCH | /auth/profile | Update optional name/email/avatar fields; an empty avatar removes the picture |
 | GET / POST | /api/quiz; /api/quiz/answer; /api/quiz/submit | Daily questions, first-choice answers and atomic rewards/streak bonuses |

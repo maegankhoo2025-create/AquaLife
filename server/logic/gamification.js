@@ -1,15 +1,27 @@
 // Pearls, XP, levels, daily tasks, streaks and achievements.
 // Server copy of the rules in client/src/stores/game.js.
 
-const { getSpecies } = require('../data/species')
-
 const XP_PER_LEVEL = 200
 const QUIZ_STREAK_BONUSES = { 5: 5, 10: 10, 20: 20, 40: 40, 80: 80 }
+const FISH_BADGES = [
+  { count: 1, name: 'First Fin' },
+  { count: 5, name: 'Growing School' },
+  { count: 10, name: 'Big School' },
+  { count: 25, name: 'Aquarium Keeper' },
+]
+const STREAK_BADGES = [
+  { count: 1, name: 'First Day' },
+  { count: 3, name: 'Three-Day Streak' },
+  { count: 5, name: 'Five-Day Streak' },
+  { count: 10, name: 'Ten-Day Streak' },
+  { count: 20, name: 'Twenty-Day Streak' },
+]
 
 const DAILY_TASKS = [
-  { id: 'feed', label: 'Feed your fish', reward: 5 },
-  { id: 'clean', label: 'Start a partial water change', reward: 10 },
-  { id: 'temp', label: 'Check temperature', reward: 5 },
+  { id: 'feed', label: 'Feed your fish', reward: 10 },
+  { id: 'clean', label: 'Start a partial water change', reward: 20 },
+  { id: 'temp', label: 'Check temperature', reward: 10 },
+  { id: 'ph', label: 'Check pH', reward: 10 },
 ]
 
 // Days are counted in Singapore time, so "today" is the same for everyone
@@ -42,28 +54,36 @@ function currentStreak(user) {
 }
 
 
+function progressBadge(id, icon, name, progress, target) {
+  return {
+    id,
+    icon,
+    name,
+    earned: progress >= target,
+    progress: Math.min(progress, target),
+    target,
+  }
+}
+
 // Dead fish (health 0) stay in the tank but do not count towards achievements.
-function achievements(user, tanks) {
+function achievements(user, tanks, friendCount = 0) {
   const livingFish = tanks.flatMap((tank) => tank.fish.filter((fish) => fish.health > 0))
   const fishCount = livingFish.length
-  const fullyGrown = livingFish.some((fish) => {
-    const species = getSpecies(fish.speciesId)
-    return species && fish.size >= species.size
-  })
 
-  return [
-    { id: 'first-fish', icon: 'fish', name: 'First fish', earned: fishCount >= 1 },
-    { id: 'school', icon: 'aquarium', name: 'School of 10', earned: fishCount >= 10 },
-    { id: 'fully-grown', icon: 'trophy', name: 'Fully grown', earned: fullyGrown },
-    { id: 'streak', icon: 'flame', name: '3-day quiz streak', earned: currentStreak(user) >= 3 },
-    { id: 'saver', icon: 'pearl', name: '500 pearls saved', earned: user.pearls >= 500 },
-    {
-      id: 'carer',
-      icon: 'clean',
-      name: 'All tasks done today',
-      earned: tasksDoneToday(user).length === DAILY_TASKS.length,
-    },
-  ]
+  const badges = FISH_BADGES.map((badge) =>
+    progressBadge(`fish-${badge.count}`, 'fish', badge.name, fishCount, badge.count),
+  )
+  for (const badge of STREAK_BADGES) {
+    badges.push(progressBadge(
+      `streak-${badge.count}`,
+      'flame',
+      badge.name,
+      currentStreak(user),
+      badge.count,
+    ))
+  }
+  badges.push(progressBadge('friends-5', 'user', 'Connected with 5 friends', friendCount, 5))
+  return badges
 }
 
 module.exports = {

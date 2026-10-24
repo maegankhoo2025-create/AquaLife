@@ -75,7 +75,7 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String, default: '', select: false, validate: validAvatar },
 
     // Gamification. Level is worked out from xp, so it is not stored.
-    pearls: { type: Number, default: 200, min: 0 },
+    pearls: { type: Number, default: 500, min: 0 },
     xp: { type: Number, default: 0, min: 0 },
     inviteToken: { type: String, unique: true, sparse: true, select: false },
 

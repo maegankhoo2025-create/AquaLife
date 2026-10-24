@@ -7,6 +7,7 @@ import AppIcon from '../components/AppIcon.vue'
 // First letter of the name, shown inside the avatar circle.
 const initial = computed(() => game.user.name.charAt(0).toUpperCase())
 const earnedBadges = computed(() => achievements.value.filter((badge) => badge.earned))
+const featuredBadge = computed(() => earnedBadges.value[earnedBadges.value.length - 1] || null)
 const name = ref(game.user.name)
 const email = ref(game.user.email)
 const avatar = ref(game.user.avatar || '')
@@ -14,6 +15,10 @@ const isReadingPicture = ref(false)
 const isSaving = ref(false)
 const message = ref('')
 const messageIsError = ref(false)
+
+function badgeProgress(badge) {
+  return badge.target ? Math.min(1, badge.progress / badge.target) : 0
+}
 
 async function choosePicture(event) {
   const file = event.target.files?.[0]
@@ -92,7 +97,17 @@ function selectTank(tankId) {
           <span v-else>{{ initial }}</span>
         </div>
         <div class="al-grow">
-          <h1 class="al-title">{{ game.user.name }}</h1>
+          <h1 class="al-title profile-name">
+            {{ game.user.name }}
+            <span
+              v-if="featuredBadge"
+              class="profile-name__badge"
+              :title="featuredBadge.name"
+              :aria-label="`${featuredBadge.name} badge earned`"
+            >
+              <AppIcon :name="featuredBadge.icon" :size="18" />
+            </span>
+          </h1>
           <p class="text-muted-al mb-2">
             Level {{ level }} · {{ xpInLevel }} / {{ xpPerLevel }} XP
           </p>
@@ -187,12 +202,20 @@ function selectTank(tankId) {
               class="profile-badge"
               :class="{ 'profile-badge--earned': badge.earned }"
             >
-              <AppIcon :name="badge.icon" :size="36" class="profile-badge__icon" />
-              <div>
+              <AppIcon
+                :name="badge.icon"
+                :size="36"
+                class="profile-badge__icon"
+                :style="{ filter: `grayscale(${1 - badgeProgress(badge)})` }"
+              />
+              <div class="al-grow">
                 <span class="profile-badge__name">{{ badge.name }}</span>
                 <span class="d-block small text-muted-al">
-                  {{ badge.earned ? 'Earned' : 'Not yet earned' }}
+                  {{ badge.earned ? 'Earned' : `${badge.progress} / ${badge.target}` }}
                 </span>
+                <div class="badge-progress" role="progressbar" :aria-valuenow="badge.progress" :aria-valuemin="0" :aria-valuemax="badge.target" :aria-label="`${badge.name} progress`">
+                  <span :style="{ width: `${badgeProgress(badge) * 100}%` }"></span>
+                </div>
               </div>
             </li>
           </ul>
@@ -297,6 +320,24 @@ function selectTank(tankId) {
 .profile-head__body .al-grow {
   flex-basis: 12rem;
 }
+
+.profile-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.profile-name__badge {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--al-aqua);
+  color: var(--al-bg);
+}
+
 .badge-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
@@ -314,24 +355,44 @@ function selectTank(tankId) {
   padding: 1rem;
   border: 1px solid var(--al-border);
   border-radius: 1rem;
+  background: var(--al-surface-2);
+  transition: border-color 160ms ease, background 160ms ease;
 }
 
 .profile-badge--earned {
   border-color: var(--al-aqua);
+  background: color-mix(in srgb, var(--al-aqua) 9%, var(--al-surface-2));
 }
 
 .profile-badge__icon {
   flex-shrink: 0;
+  color: var(--al-aqua);
 }
 
 .profile-badge--earned .profile-badge__icon {
-  color: var(--al-aqua);
+  filter: none;
 }
 
 .profile-badge__name {
   display: block;
   overflow-wrap: anywhere;
   font-weight: 700;
+}
+
+.badge-progress {
+  height: 5px;
+  margin-top: 0.45rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--al-border);
+}
+
+.badge-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--al-aqua);
+  transition: width 180ms ease;
 }
 
 </style>

@@ -4,6 +4,7 @@ const express = require('express')
 const mongoose = require('mongoose')
 const User = require('../models/User-model')
 const Tank = require('../models/Tank-model')
+const Friendship = require('../models/Friendship-model')
 const Transaction = require('../models/Transaction-model')
 const Product = require('../models/Product-model')
 const { purchase } = require('../logic/shop')
@@ -45,7 +46,10 @@ router.get('/me', async (req, res) => {
     const user = await User.findById(req.session.userId)
     if (!user) return res.status(404).json({ message: 'User not found.' })
 
-    const tanks = await Tank.getAllTanks(user._id)
+    const [tanks, friendCount] = await Promise.all([
+      Tank.getAllTanks(user._id),
+      Friendship.countDocuments({ members: user._id, status: 'accepted' }),
+    ])
     for (const tank of tanks) simulateTank(tank) // stats preview only; /tanks owns lazy persistence
 
     return res.status(200).json({
@@ -61,7 +65,7 @@ router.get('/me', async (req, res) => {
           days: Number(days), reward,
         })),
       },
-      achievements: achievements(user, tanks),
+      achievements: achievements(user, tanks, friendCount),
     })
   } catch (error) {
     console.error('Get player stats failed:', error)
@@ -170,7 +174,7 @@ router.get('/care', async (req, res) => {
   }
 })
 
-// POST /api/game/tasks/:taskId  body: { tankId }  (taskId: feed, clean or temp)
+// POST /api/game/tasks/:taskId  body: { tankId }  (taskId: feed, clean, temp or ph)
 // The action always happens, but pearls are only paid the first time each day.
 router.post('/tasks/:taskId', async (req, res) => {
   if (!requireLogin(req, res)) return
@@ -209,8 +213,10 @@ router.post('/tasks/:taskId', async (req, res) => {
           startedAt: now, endsAt: new Date(now.getTime() + WATER_CHANGE_DURATION), amount, delivered: 0,
         })
         message = `Started a 30-minute partial water change in ${tank.name}.`
-      } else {
+      } else if (task.id === 'temp') {
         message = `Checked ${tank.name}: ${tank.conditions.temperature.toFixed(1)}°C. Installed equipment controls temperature.`
+      } else {
+        message = `Checked ${tank.name}: pH ${tank.conditions.ph.toFixed(2)}.`
       }
       await tank.save({ session })
 

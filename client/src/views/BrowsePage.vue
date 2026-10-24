@@ -13,6 +13,7 @@ import {
 import ConflictModal from '../components/ConflictModal.vue'
 import ItemCard from '../components/ItemCard.vue'
 import ItemModal from '../components/ItemModal.vue'
+import AlModal from '../components/AlModal.vue'
 
 const items = getItems()
 const tank = currentTank
@@ -54,6 +55,8 @@ function clearFilters() {
 // ---- Item details and the conflict flow ----
 const selectedItem = ref(null) // item shown in the quick-view dialog
 const pendingConflict = ref(null) // { item, quantity } waiting for the user's decision
+const pendingPearlPurchase = ref(null)
+const LOW_PEARL_BALANCE = 100
 
 function onAdd({ item, quantity }) {
   selectedItem.value = null
@@ -70,14 +73,30 @@ function onConflictChoice(tankId) {
   buy(item, tankId, quantity, true) // the user chose: a better tank, or "add anyway"
 }
 
-async function buy(item, tankId, quantity, force = false) {
+async function buy(item, tankId, quantity, force = false, confirmedLowBalance = false) {
+  if (confirmedLowBalance) pendingPearlPurchase.value = null
+  const remaining = game.pearls - item.price * quantity
+  if (!confirmedLowBalance && remaining < LOW_PEARL_BALANCE) {
+    pendingPearlPurchase.value = { item, tankId, quantity, force, remaining }
+    return
+  }
+
   const result = await buyItem(item, tankId, quantity, force)
   // The server can still spot a conflict (e.g. conditions changed elsewhere): ask the user.
   if (result.conflict) {
     pendingConflict.value = { item, quantity }
     return
   }
-  notify(result.message, !result.ok)
+  const conditionNames = {
+    temperature: 'temperature',
+    ph: 'pH',
+    waterQuality: 'water quality',
+  }
+  const condition = item.effect?.condition
+  const reminder = result.ok && conditionNames[condition]
+    ? ` Remember to review your ${conditionNames[condition]} goal.`
+    : ''
+  notify(`${result.message}${reminder}`, !result.ok)
   // Follow the fish: if it went to another tank, show that tank next.
   if (result.ok) game.currentTankId = tankId
 }
@@ -203,6 +222,39 @@ async function buy(item, tankId, quantity, force = false) {
       @close="pendingConflict = null"
       @add="onConflictChoice"
     />
+    <AlModal
+      :open="pendingPearlPurchase !== null"
+      title="Running low on pearls?"
+      @close="pendingPearlPurchase = null"
+    >
+      <template v-if="pendingPearlPurchase">
+        <p>
+          Oh no, you're running low on pearls! Are you sure you want to purchase
+          <strong>{{ pendingPearlPurchase.item.name }}</strong>?
+        </p>
+        <p class="text-muted-al">
+          You'll have {{ Math.max(0, pendingPearlPurchase.remaining) }} pearls left after this purchase.
+        </p>
+        <div class="d-grid gap-2">
+          <button
+            class="btn btn-aqua"
+            type="button"
+            @click="buy(
+              pendingPearlPurchase.item,
+              pendingPearlPurchase.tankId,
+              pendingPearlPurchase.quantity,
+              pendingPearlPurchase.force,
+              true
+            )"
+          >
+            Yes, purchase item
+          </button>
+          <button class="btn btn-ghost" type="button" @click="pendingPearlPurchase = null">
+            Keep my pearls
+          </button>
+        </div>
+      </template>
+    </AlModal>
  
   </main>
 </template>

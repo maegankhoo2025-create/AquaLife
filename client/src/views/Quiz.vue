@@ -59,10 +59,17 @@ import AppIcon from '../components/AppIcon.vue'
           <h2 class="h5">Badges</h2>
           <div class="row g-2">
             <div v-for="badge in achievements" :key="badge.id" class="col-6 col-sm-4 col-xxl-3">
-              <div class="badge-tile" :class="{ 'opacity-50': !badge.earned }">
-                <AppIcon :name="badge.icon" :size="40" />
+              <div class="badge-tile" :class="{ 'badge-tile--earned': badge.earned }">
+                <AppIcon
+                  :name="badge.icon"
+                  :size="40"
+                  :style="{ filter: `grayscale(${1 - (badge.target ? Math.min(1, badge.progress / badge.target) : 0)})` }"
+                />
                 <span class="fw-bold">{{ badge.name }}</span>
-                <span class="visually-hidden">{{ badge.earned ? '(earned)' : '(locked)' }}</span>
+                <span class="small text-muted-al">{{ badge.earned ? 'Earned' : `${badge.progress} / ${badge.target}` }}</span>
+                <div class="badge-progress" role="progressbar" :aria-valuenow="badge.progress" :aria-valuemin="0" :aria-valuemax="badge.target" :aria-label="`${badge.name} progress`">
+                  <span :style="{ width: `${(badge.target ? Math.min(1, badge.progress / badge.target) : 0) * 100}%` }"></span>
+                </div>
               </div>
             </div>
           </div>
@@ -107,8 +114,32 @@ import AppIcon from '../components/AppIcon.vue'
   min-height: 144px;
   padding: 1.25rem 0.75rem;
   border-radius: var(--al-radius-sm);
+  border: 1px solid var(--al-border);
   background: var(--al-surface-2);
   text-align: center;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.badge-tile--earned {
+  border-color: var(--al-aqua);
+  background: color-mix(in srgb, var(--al-aqua) 9%, var(--al-surface-2));
+}
+
+.badge-progress {
+  width: 100%;
+  height: 5px;
+  margin-top: auto;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--al-border);
+}
+
+.badge-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--al-aqua);
+  transition: width 180ms ease;
 }
 
 .streak-milestones {
