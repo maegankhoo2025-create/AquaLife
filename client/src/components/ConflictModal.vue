@@ -1,9 +1,9 @@
 <script setup>
 // Shown when the user tries to add a fish that does not suit the chosen tank.
-// It explains why, offers a tank where the fish does fit, and still lets the
-// user go ahead with the original tank if they insist.
+// It explains why, offers a tank where the fish does fit (or a brand-new tank set up
+// for it), and still lets the user go ahead with the original tank if they insist.
 import { computed } from 'vue'
-import { checkCompatibility, suggestTank } from '../stores/game'
+import { checkCompatibility, nextTankName, suggestTank } from '../stores/game'
 import AlModal from './AlModal.vue'
 
 const props = defineProps({
@@ -12,7 +12,9 @@ const props = defineProps({
   tank: { type: Object, required: true },
 })
 // "add" sends the id of the tank the user chose.
-const emit = defineEmits(['close', 'add'])
+// "new-tank" sends the name for a new tank to create for this fish.
+const emit = defineEmits(['close', 'add', 'new-tank'])
+const newTankName = computed(() => nextTankName())
 
 const reasons = computed(() =>
   props.pending ? checkCompatibility(props.pending.item, props.tank).reasons : [],
@@ -38,7 +40,7 @@ const betterTank = computed(() =>
         {{ betterTank.name }} has the right conditions for this fish.
       </p>
       <p v-else class="text-muted-al">
-        None of your tanks suit this fish right now. Try adjusting a tank's conditions first.
+        None of your tanks suit this fish right now. You can set up a new tank for it.
       </p>
 
       <div class="d-grid gap-2">
@@ -49,6 +51,14 @@ const betterTank = computed(() =>
           @click="emit('add', betterTank.id)"
         >
           Add to {{ betterTank.name }}
+        </button>
+        <button
+          class="btn"
+          :class="betterTank ? 'btn-ghost' : 'btn-aqua'"
+          type="button"
+          @click="emit('new-tank', newTankName)"
+        >
+          Create {{ newTankName }} for this fish
         </button>
         <button class="btn btn-ghost" type="button" @click="emit('close')">Cancel</button>
         <button class="btn btn-link" type="button" @click="emit('add', tank.id)">

@@ -8,16 +8,23 @@ const props = defineProps({
   open: { type: Boolean, required: true },
   title: { type: String, required: true },
 })
-defineEmits(['close'])
+const emit = defineEmits(['close'])
 
 const titleId = useId()
 const panel = ref(null)
+
+// Esc closes the dialog even when focus has left it (e.g. a clicked button became disabled).
+function onKeydown(event) {
+  if (event.key === 'Escape') emit('close')
+}
 
 watch(
   () => props.open,
   async (isOpen) => {
     // Stop the page behind the dialog from scrolling while it is open.
     document.body.classList.toggle('overflow-hidden', isOpen)
+    if (isOpen) document.addEventListener('keydown', onKeydown)
+    else document.removeEventListener('keydown', onKeydown)
     if (isOpen) {
       // Move keyboard focus into the dialog so Esc and Tab work from inside it.
       await nextTick()
@@ -27,13 +34,16 @@ watch(
   { immediate: true },
 )
 
-onUnmounted(() => document.body.classList.remove('overflow-hidden'))
+onUnmounted(() => {
+  document.body.classList.remove('overflow-hidden')
+  document.removeEventListener('keydown', onKeydown)
+})
 </script>
 
 <template>
   <!-- Teleport moves the dialog to <body> so it always sits above the page -->
   <Teleport to="body">
-    <div v-if="open" class="al-modal" @click.self="$emit('close')" @keydown.esc="$emit('close')">
+    <div v-if="open" class="al-modal" @click.self="$emit('close')">
       <div
         ref="panel"
         class="al-modal__panel al-card"

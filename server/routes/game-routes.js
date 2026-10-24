@@ -10,7 +10,7 @@ const Product = require('../models/Product-model')
 const { purchase } = require('../logic/shop')
 const { getSpecies } = require('../data/species')
 const { safeRange } = require('../logic/compatibility')
-const { simulateTank, WATER_CHANGE_DURATION } = require('../logic/simulation')
+const { simulateTank } = require('../logic/simulation')
 const {
   DAILY_TASKS,
   QUIZ_STREAK_BONUSES,
@@ -18,6 +18,7 @@ const {
   levelInfo,
   tasksDoneToday,
   currentStreak,
+  bestStreak,
   achievements,
 } = require('../logic/gamification')
 
@@ -38,7 +39,7 @@ async function findMyTank(tankId, userId) {
   return Tank.getTankById(tankId, userId)
 }
 
-// GET /api/game/me -> pearls, level, tasks done today, quiz streak and achievements
+// GET /api/game/me -> pearls, level, tasks done today (per tank), quiz streak and achievements
 router.get('/me', async (req, res) => {
   if (!requireLogin(req, res)) return
 
@@ -56,9 +57,11 @@ router.get('/me', async (req, res) => {
       pearls: user.pearls,
       xp: user.xp,
       ...levelInfo(user.xp),
-      tasks: DAILY_TASKS.map((task) => ({ ...task, done: tasksDoneToday(user).includes(task.id) })),
+      tasks: DAILY_TASKS,
+      tasksDone: tasksDoneToday(user), // "taskId:tankId" for every task rewarded today
       quiz: {
         streak: currentStreak(user),
+        bestStreak: bestStreak(user),
         doneToday: user.quiz.lastDay === dayKey(),
         scores: user.quiz.scores.slice().reverse(), // newest first
         milestones: Object.entries(QUIZ_STREAK_BONUSES).map(([days, reward]) => ({
@@ -109,7 +112,7 @@ function careChecks(user, tanks, today) {
   }
 
   const tracking = livingCount > 0
-  const checkedToday = user.tasks.day === today && user.tasks.done.includes('temp')
+  const checkedToday = user.tasks.day === today && user.tasks.done.some((key) => key.startsWith('temp:'))
   return [
     { id: 'health', label: 'Healthy fish', met: tracking && healthyCount === fishCount, evidence: `${healthyCount} / ${fishCount} fish at 70% health or higher.` },
     { id: 'fed', label: 'Fish fed', met: tracking && fedCount === livingCount, evidence: `${fedCount} / ${livingCount} living fish below 50% hunger.` },
@@ -201,18 +204,14 @@ router.post('/tasks/:taskId', async (req, res) => {
         for (const fish of tank.fish) if (fish.health > 0) fish.hunger = 0
         message = `Fed the fish in ${tank.name}.`
       } else if (task.id === 'clean') {
-        const currentJob = tank.maintenance?.waterChange
-        if (currentJob?.endsAt && new Date(currentJob.endsAt) > now) {
-          return { status: 409, message: 'A water change is already running. Wait for it to finish.', tank }
+        // Cleaning works straight away: up to 25 water quality points, never above 100%.
+        const before = tank.conditions.waterQuality
+        if (before >= 100) {
+          return { status: 400, message: 'The water is already perfectly clean.', tank }
         }
-        const amount = Math.min(25, tank.targets.waterQuality - tank.conditions.waterQuality)
-        if (amount <= 0) {
-          return { status: 400, message: 'Water quality is already at or above your goal.', tank }
-        }
-        tank.set('maintenance.waterChange', {
-          startedAt: now, endsAt: new Date(now.getTime() + WATER_CHANGE_DURATION), amount, delivered: 0,
-        })
-        message = `Started a 30-minute partial water change in ${tank.name}.`
+        tank.conditions.waterQuality = Math.min(100, before + 25)
+        const gained = Math.round(tank.conditions.waterQuality - before)
+        message = `Cleaned ${tank.name}: water quality +${gained} points.`
       } else if (task.id === 'temp') {
         message = `Checked ${tank.name}: ${tank.conditions.temperature.toFixed(1)}°C. Installed equipment controls temperature.`
       } else {
@@ -220,16 +219,21 @@ router.post('/tasks/:taskId', async (req, res) => {
       }
       await tank.save({ session })
 
+      // Each tank has its own daily tasks, saved as "taskId:tankId", e.g. "feed:66f1...".
+      // Only tanks with living fish pay rewards, so empty tanks cannot be used to farm pearls.
       let reward = 0
       const today = dayKey(now)
-      if (user.tasks.day !== today || !user.tasks.done.includes(task.id)) {
+      const doneKey = `${task.id}:${tank._id}`
+      const hasLivingFish = tank.fish.some((fish) => fish.health > 0)
+      if (!hasLivingFish) message += ' Add fish to this tank to earn pearls for its care.'
+      if (hasLivingFish && (user.tasks.day !== today || !user.tasks.done.includes(doneKey))) {
         if (user.tasks.day !== today) user.tasks = { day: today, done: [] }
-        user.tasks.done.push(task.id)
+        user.tasks.done.push(doneKey)
         reward = task.reward
         user.pearls += reward
         user.xp += reward
         await Transaction.create([{
-          user: user._id, type: 'reward', label: task.label, amount: reward,
+          user: user._id, type: 'reward', label: `${task.label} (${tank.name})`, amount: reward,
         }], { session })
       }
       const tanks = await Tank.find({ owner: user._id }).session(session)

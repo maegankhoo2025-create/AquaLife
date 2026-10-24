@@ -41,7 +41,7 @@ function freshState() {
     currentTankId: null,
     tanks: [],
     history: [],
-    tasksDone: [], // ids of the daily tasks already rewarded today
+    tasksDone: [], // "taskId:tankId" for each daily task already rewarded today
     quiz: { streak: 0, doneToday: false, scores: [] },
     achievements: [],
     settings: { dailyReminder: true, quizReminder: true, reduceMotion: false },
@@ -88,6 +88,21 @@ export function notify(text, bad = false) {
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => (toast.text = ''), 3500)
 }
+
+// ---- Low pearl warning ----
+// Below this balance the navbar turns orange and the player gets a warning.
+export const LOW_PEARLS = 100
+export const lowOnPearls = computed(() => game.user.id !== null && game.pearls < LOW_PEARLS)
+
+// Warn once, at the moment the balance drops below LOW_PEARLS (for example after buying).
+watch(
+  () => game.pearls,
+  (newPearls, oldPearls) => {
+    if (oldPearls >= LOW_PEARLS && newPearls < LOW_PEARLS) {
+      notify("Oh no, you're running out of pearls! Do your care tasks and the daily quiz to earn more.", true)
+    }
+  },
+)
 
 // The server's message for a failed request, or a general one if the server is unreachable.
 function errorMessage(error, fallback) {
@@ -152,7 +167,7 @@ function putTank(serverTank) {
 function applyStats(me) {
   game.pearls = me.pearls
   game.xp = me.xp
-  game.tasksDone = me.tasks.filter((task) => task.done).map((task) => task.id)
+  game.tasksDone = me.tasksDone || []
   game.quiz = me.quiz
   game.achievements = me.achievements
 }
@@ -329,13 +344,24 @@ export async function refreshTank(tankId, { force = false } = {}) {
   }
 }
 
-export async function createTank(name) {
+// The first free "Tank N" name, e.g. "Tank 2" when the player has one tank.
+export function nextTankName() {
+  let number = game.tanks.length + 1
+  while (game.tanks.some((tank) => tank.name === `Tank ${number}`)) number += 1
+  return `Tank ${number}`
+}
+
+// forItemId (optional): set the new tank's water up for this fish species.
+// Returns { ok, tankId } or { ok: false, message }.
+export async function createTank(name, forItemId) {
   beginTankWrite()
   try {
-    const { data } = await LoginApi.post('/api/tanks', { name: name.trim() })
+    const body = { name: name.trim() }
+    if (forItemId) body.forItemId = forItemId
+    const { data } = await LoginApi.post('/api/tanks', body)
     putTank(data.tank)
     game.currentTankId = data.tank._id
-    return { ok: true }
+    return { ok: true, tankId: data.tank._id }
   } catch (error) {
     return { ok: false, message: errorMessage(error, 'Unable to create the tank.') }
   } finally {
@@ -529,6 +555,25 @@ export function checkCompatibility(item, tank) {
   return { ok: reasons.length === 0, reasons }
 }
 
+// ---- Care items ----
+// Shop items that move a condition in one direction, e.g. careItems('ph', 'lower').
+// The server describes each item's effect: which condition it changes and by how much per hour.
+// A positive rate raises the condition and a negative rate lowers it.
+// Plants have no rate (null) but help water quality, so they count as "raise".
+export function careItems(condition, direction) {
+  return shopItems.filter((item) => {
+    const effect = item.effect
+    if (!effect || effect.condition !== condition) return false
+    if (direction === 'raise') return effect.ratePerHour === null || effect.ratePerHour > 0
+    return effect.ratePerHour < 0
+  })
+}
+
+// How many of this item are already in the tank (equipment is limited to one).
+export function countInTank(tank, itemId) {
+  return tank.decorations.filter((decoration) => decoration.itemId === itemId).length
+}
+
 // Another tank where the item fits, or undefined if there is none.
 export function suggestTank(item, exceptTankId) {
   return game.tanks.find(
@@ -569,8 +614,15 @@ export async function buyItem(item, tankId, quantity = 1, force = false) {
 }
 
 // ---- Daily care tasks ----
-export function getTasks() {
-  return DAILY_TASKS.map((task) => ({ ...task, done: game.tasksDone.includes(task.id) }))
+// The four daily tasks for one tank. Each tank has its own, so feeding
+// Tank 1 does not count for Tank 2. done = already rewarded today for this tank.
+export function getTasks(tankId) {
+  return DAILY_TASKS.map((task) => ({ ...task, done: game.tasksDone.includes(`${task.id}:${tankId}`) }))
+}
+
+// Only tanks with living fish earn pearls for care, so only they have tasks to do.
+export function tanksNeedingCare() {
+  return game.tanks.filter((tank) => tank.fish.some((fish) => fish.health > 0))
 }
 
 // The care animation playing right now (food dropping, bubbles, thermometer).

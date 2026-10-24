@@ -1,10 +1,12 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { game } from '../stores/game'
+import { game, LOW_PEARLS, lowOnPearls } from '../stores/game'
 import LogoutButton from './LogoutButton.vue'
 import PearlCount from './PearlCount.vue'
 import AppIcon from './AppIcon.vue'
+import AquaLogo from './AquaLogo.vue'
+import UserAvatar from './UserAvatar.vue'
 
 const links = [
   { to: { name: 'dashboard' }, label: 'Dashboard' },
@@ -31,17 +33,21 @@ watch(
   <nav class="navbar navbar-expand-lg sticky-top app-navbar" aria-label="Main">
     <div class="container">
       <RouterLink class="navbar-brand" :to="{ name: 'dashboard' }">
-        <AppIcon name="fish" :size="26" /> AquaLife
+        <AquaLogo :size="34" /> AquaLife
       </RouterLink>
 
       <!-- On small screens the pearl balance sits beside the hamburger button -->
       <div class="d-flex align-items-center gap-3 order-lg-last">
-        <PearlCount :amount="game.pearls" />
+        <!-- Turns orange when the balance is below LOW_PEARLS -->
+        <span
+          class="pearl-pill"
+          :class="{ 'pearl-pill--low': lowOnPearls }"
+          :title="lowOnPearls ? `Running out of pearls (under ${LOW_PEARLS}). Do care tasks and the quiz to earn more.` : 'Your pearls'"
+        >
+          <PearlCount :amount="game.pearls" />
+        </span>
         <RouterLink class="profile-link" :to="{ name: 'profile' }" aria-label="Open profile">
-          <span class="profile-link__avatar">
-            <img v-if="game.user.avatar" :src="game.user.avatar" alt="" />
-            <span v-else>{{ game.user.name.charAt(0).toUpperCase() }}</span>
-          </span>
+          <UserAvatar :src="game.user.avatar" :name="game.user.name" :size="30" />
           <span class="d-none d-sm-inline">Profile</span>
         </RouterLink>
         <!-- From lg up there is no hamburger, so Log out sits here, right of the pearls -->
@@ -77,7 +83,8 @@ watch(
 
 <style scoped>
 .app-navbar {
-  background: var(--al-surface-1);
+  background: color-mix(in srgb, var(--al-surface-1) 88%, transparent);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--al-border);
 }
 
@@ -123,23 +130,19 @@ watch(
   text-decoration: none;
 }
 
-.profile-link__avatar {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  overflow: hidden;
-  border-radius: 50%;
-  background: var(--al-aqua);
-  color: var(--al-bg);
-  font-size: 0.85rem;
-  font-weight: 800;
+.pearl-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--al-border);
+  border-radius: 999px;
+  background: var(--al-surface-2);
 }
 
-.profile-link__avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.pearl-pill--low {
+  border-color: var(--al-warn);
+  color: var(--al-warn);
 }
 
 @media (hover: hover) {

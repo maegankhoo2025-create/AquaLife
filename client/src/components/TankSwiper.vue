@@ -122,7 +122,7 @@ onBeforeUnmount(() => clearTimeout(scrollTimer))
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  border-radius: var(--al-radius-lg);
+  /* No rounded corners here: they clipped the Decorate button. Each tank scene rounds its own corners. */
 }
 
 .swiper__track::-webkit-scrollbar {

@@ -10,7 +10,8 @@ const { simulateTank } = require('../logic/simulation')
 const router = express.Router()
 const validId = (id) => typeof id === 'string' && /^[a-f\d]{24}$/i.test(id)
 const pairKey = (a, b) => [String(a), String(b)].sort().join(':')
-const profile = (user) => ({ id: String(user._id), name: user.name })
+// avatar is the small profile picture (an empty string when there is none).
+const profile = (user) => ({ id: String(user._id), name: user.name, avatar: user.avatar || '' })
 const handle = (action) => (req, res, next) => Promise.resolve(action(req, res)).catch(next)
 
 router.use(async (req, res, next) => {
@@ -36,7 +37,7 @@ router.get('/', handle(async (req, res) => {
     user.inviteToken = updated?.inviteToken || (await User.findById(user._id).select('+inviteToken')).inviteToken
   }
   const relationships = await Friendship.find({ members: user._id })
-    .populate('members', 'name').sort({ createdAt: -1 })
+    .populate('members', 'name avatar').sort({ createdAt: -1 })
   const friends = []
   const incoming = []
   const outgoing = []
@@ -160,7 +161,7 @@ router.use('/:friendId', async (req, res, next) => {
       pair: pairKey(req.socialUser._id, req.params.friendId), status: 'accepted',
     })
     if (!relationship) return res.status(403).json({ message: 'Accept a friendship before visiting or sending messages.' })
-    const friend = await User.findById(req.params.friendId).select('name')
+    const friend = await User.findById(req.params.friendId).select('name avatar')
     if (!friend) return res.status(404).json({ message: 'Friend not found.' })
     req.socialFriend = friend
     next()

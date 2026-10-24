@@ -84,7 +84,7 @@ Pictures may be PNG, JPEG or WebP, up to 5 MiB. The browser center-crops the ima
 
 Profile updates preserve fields omitted from the request. Duplicate email addresses are rejected. Password hashes and invitation tokens are excluded from ordinary profile/session responses; this page does not add password changing or email verification.
 
-Achievement badges progressively gain color as fish, quiz-streak and friend milestones are reached. The existing **Reduce motion** preference controls aquarium movement. The reminder preference switches do not implement scheduled push or email notifications. Preferences and selected-tank choice remain browser-local settings.
+Four achievement badges (Fish Keeper, Quiz Streak, Fish Scholar, Social Fish) each upgrade through five tiers: Bronze, Silver, Gold, Platinum and Diamond. Higher tiers get a richer medal (inner ring, glow, then a moving shine for Diamond). Profile shows a **My badges** section, earned medals beside the name and the highest-tier medal pinned to the profile picture. Streak badges use the best streak ever reached, so they are kept after a missed day. Choosing or removing a profile picture saves it immediately, and it updates the navbar, Profile and Friends pages. Below 100 pearls the navbar balance turns orange, Dashboard shows a "running out of pearls" banner and a warning appears when a purchase drops the balance under 100. The existing **Reduce motion** preference controls aquarium movement. The reminder preference switches do not implement scheduled push or email notifications. Preferences and selected-tank choice remain browser-local settings.
 
 ## 4. Tanks, fish and installed items
 
@@ -180,12 +180,16 @@ These rules use a fixed room temperature and fixed material strengths. The model
 
 ### Feed, care for water and check conditions
 
+Each tank has its own four daily tasks: feeding Tank 1 does not count for Tank 2. Rewards are paid once a day per task per tank, and only for tanks with living fish. Dashboard lists every stocked tank with its tasks done today.
+
 | My Tank control | Action | First daily reward |
 | --- | --- | ---: |
-| Feed fish | Resets hunger for living fish in the selected tank. Rejects a tank without living fish. | 10 pearls and 10 XP |
-| Partial change | Starts a 30-minute water change supplying up to 25 quality points, limited by the goal. Ongoing waste reduces the net improvement. | 20 pearls and 20 XP |
-| Check temperature | Reads the current temperature without changing it. Counts toward the daily care check. | 10 pearls and 10 XP |
-| Check pH | Reads the current pH without changing it. | 10 pearls and 10 XP |
+| Feed fish | Resets hunger for living fish in the selected tank. Rejects a tank without living fish. | 20 pearls and 20 XP |
+| Clean tank | Raises water quality by up to 25 points straight away (never above 100%). Disabled when the water is already at 100%. | 30 pearls and 30 XP |
+| Check temperature | Reads the current temperature without changing it. Counts toward the daily care check. | 15 pearls and 15 XP |
+| Check pH | Reads the current pH without changing it. | 15 pearls and 15 XP |
+
+Tapping a condition's info button (or **How to fix it** when it is out of range) opens a care guide: the current status and what to do, matching shop items with one-click **Buy** for the selected tank, short numbered steps, and check/caution notes.
 
 Each action type rewards once per user per Singapore calendar day, shared across tanks. **Rewarded today** means its daily reward is used; valid care can still be repeated. An active water change cannot be restarted, and a change cannot start when quality is already at or above the goal. The UI shows remaining time or **Finishing…**.
 
@@ -286,11 +290,13 @@ The quiz has five questions. The first completed quiz each day awards 10 pearls 
 
 | Consecutive completion day | Extra pearls |
 | ---: | ---: |
-| 5 | 5 |
-| 10 | 10 |
-| 20 | 20 |
-| 40 | 40 |
-| 80 | 80 |
+| 3 | 15 (Bronze Quiz Streak badge) |
+| 5 | 25 |
+| 7 | 40 (Silver) |
+| 10 | 60 |
+| 14 | 80 (Gold) |
+| 21 | 120 (Platinum) |
+| 30 | 200 (Diamond) |
 
 Milestone bonuses are added to the base answer reward and shown in the hub/results. They award no additional XP.
 

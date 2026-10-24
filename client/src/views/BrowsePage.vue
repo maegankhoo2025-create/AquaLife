@@ -4,10 +4,12 @@ import { computed, ref, onMounted } from 'vue'
 import {
   buyItem,
   checkCompatibility,
+  createTank,
   currentTank,
   game,
   loadSpeciesInfo,
   getItems,
+  LOW_PEARLS,
   notify,
 } from '../stores/game'
 import ConflictModal from '../components/ConflictModal.vue'
@@ -56,7 +58,6 @@ function clearFilters() {
 const selectedItem = ref(null) // item shown in the quick-view dialog
 const pendingConflict = ref(null) // { item, quantity } waiting for the user's decision
 const pendingPearlPurchase = ref(null)
-const LOW_PEARL_BALANCE = 100
 
 function onAdd({ item, quantity }) {
   selectedItem.value = null
@@ -73,10 +74,22 @@ function onConflictChoice(tankId) {
   buy(item, tankId, quantity, true) // the user chose: a better tank, or "add anyway"
 }
 
+// "Create Tank N for this fish": make a new tank with water that suits the fish, then buy it there.
+async function onConflictNewTank(name) {
+  const { item, quantity } = pendingConflict.value
+  pendingConflict.value = null
+  const created = await createTank(name, item.id)
+  if (!created.ok) {
+    notify(created.message, true)
+    return
+  }
+  buy(item, created.tankId, quantity)
+}
+
 async function buy(item, tankId, quantity, force = false, confirmedLowBalance = false) {
   if (confirmedLowBalance) pendingPearlPurchase.value = null
   const remaining = game.pearls - item.price * quantity
-  if (!confirmedLowBalance && remaining < LOW_PEARL_BALANCE) {
+  if (!confirmedLowBalance && remaining < LOW_PEARLS) {
     pendingPearlPurchase.value = { item, tankId, quantity, force, remaining }
     return
   }
@@ -221,6 +234,7 @@ async function buy(item, tankId, quantity, force = false, confirmedLowBalance = 
       :tank="tank"
       @close="pendingConflict = null"
       @add="onConflictChoice"
+      @new-tank="onConflictNewTank"
     />
     <AlModal
       :open="pendingPearlPurchase !== null"
