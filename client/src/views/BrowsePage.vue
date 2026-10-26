@@ -29,19 +29,19 @@ const categories = [
   { value: 'decor', label: 'Decor' },
   { value: 'equipment', label: 'Equipment' },
 ]
-const temperamentOptions = ['peaceful', 'semi-aggressive', 'aggressive']
+
 const careOptions = ['easy', 'moderate', 'hard']
 
 const category = ref('all')
 const onlyFits = ref(false)
-const temperaments = ref([]) // empty means "any"
+
 const careLevels = ref([])
 
 const filteredItems = computed(() =>
   items.filter((item) => {
     if (category.value !== 'all' && item.category !== category.value) return false
     if (onlyFits.value && !checkCompatibility(item, tank.value).ok) return false
-    if (temperaments.value.length > 0 && !temperaments.value.includes(item.temperament)) return false
+
     if (careLevels.value.length > 0 && !careLevels.value.includes(item.care)) return false
     return true
   }),
@@ -50,7 +50,7 @@ const filteredItems = computed(() =>
 function clearFilters() {
   category.value = 'all'
   onlyFits.value = false
-  temperaments.value = []
+
   careLevels.value = []
 }
 
@@ -61,7 +61,7 @@ const pendingPearlPurchase = ref(null)
 
 function onAdd({ item, quantity }) {
   selectedItem.value = null
-  if (checkCompatibility(item, tank.value).ok) {
+  if (checkCompatibility(item, tank.value, quantity).ok) {
     buy(item, tank.value.id, quantity)
   } else {
     pendingConflict.value = { item, quantity }
@@ -181,18 +181,7 @@ async function buy(item, tankId, quantity, force = false, confirmedLowBalance = 
               <span>Only fits {{ tank.name }}</span>
             </label>
 
-            <fieldset class="mb-3">
-              <legend class="h6">Temperament</legend>
-              <label v-for="option in temperamentOptions" :key="option" class="form-check al-check">
-                <input
-                  v-model="temperaments"
-                  class="form-check-input"
-                  type="checkbox"
-                  :value="option"
-                />
-                <span class="text-capitalize">{{ option }}</span>
-              </label>
-            </fieldset>
+
 
             <fieldset class="mb-3">
               <legend class="h6">Care level</legend>
@@ -269,7 +258,7 @@ async function buy(item, tankId, quantity, force = false, confirmedLowBalance = 
         </div>
       </template>
     </AlModal>
- 
+
   </main>
 </template>
 

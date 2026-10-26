@@ -1,5 +1,6 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
+import { fishAppearance } from '../data/fishAppearance'
 
 // Line Fish Vectors by Agus Dahmiko, CC Attribution:
 // https://www.svgrepo.com/collection/line-fish-vectors/
@@ -51,11 +52,19 @@ const fishPaths = {
     'M17,34h6a5,5,0,0,0,5-5,1,1,0,0,0-1-1H17a1,1,0,0,0-1,1v4A1,1,0,0,0,17,34Zm1-4h7.83A3,3,0,0,1,23,32H18Z',
   ],
 }
-const baseSpecies = { 'zebra-danio': 'neon-tetra', 'tiger-barb': 'discus', oscar: 'discus' }
-const species = computed(() => fishPaths[props.speciesId] || baseSpecies[props.speciesId] ? props.speciesId : 'neon-tetra')
-const profile = computed(() => baseSpecies[species.value] || species.value)
+const species = computed(() =>
+  fishAppearance[props.speciesId] ? props.speciesId : 'neon-tetra'
+)
+const appearance = computed(() => fishAppearance[species.value])
+
+const profile = computed(() => appearance.value.shape)
+
 const paths = computed(() => fishPaths[profile.value])
-const transform = computed(() => species.value === 'oscar' ? 'translate(0 10) scale(1 .65)' : species.value === 'tiger-barb' ? 'translate(0 5) scale(1 .82)' : null)
+
+const transform = computed(() => {
+   const height = appearance.value.height
+  return height === 1 ? null : `translate(0 ${28 * (1 - height)}) scale(1 ${height})`
+})
 
 // These interior boundaries follow the openings in the original line artwork.
 const interiors = {
@@ -88,19 +97,8 @@ const interiors = {
     fins: 'M22.12 4.47a13.24 13.24 0 0 1 11 1.79L47.54 15l-4.66 6.28A21 21 0 0 0 14.63 8.75a16.24 16.24 0 0 1 7.49-4.28ZM33.06 49.77a13.2 13.2 0 0 1-10.94 1.76 16.24 16.24 0 0 1-7.49-4.28A21 21 0 0 0 42.88 34.71L47.54 41ZM52 34.38l-8-4V25.62l8-4Z',
   },
 }
-const palettes = {
-  'neon-tetra': { body: '#d5e2cd', fins: '#a4b8a4' },
-  'zebra-danio': { body: '#e0dfb4', fins: '#aaba9e' },
-  guppy: { body: '#c4d0b6', fins: '#a7b9ad' },
-  corydoras: { body: '#b8be94', fins: '#8f9978' },
-  goldfish: { body: '#f7a51d', fins: '#e78324' },
-  betta: { body: '#f58b4e', fins: '#d94b25' },
-  angelfish: { body: '#c3ceca', fins: '#99aaa0' },
-  discus: { body: '#80c4b9', fins: '#58ada9' },
-  'tiger-barb': { body: '#e4cb7e', fins: '#d99750' },
-  oscar: { body: '#62615d', fins: '#454d51' },
-}
-const palette = computed(() => palettes[species.value])
+
+const palette = computed(() => appearance.value)
 const interior = computed(() => interiors[profile.value])
 const markings = {
   'neon-tetra': [
@@ -149,15 +147,98 @@ const eye = computed(() => ({
   'neon-tetra': [10, 28], guppy: [9, 27], corydoras: [10, 26],
   goldfish: [7, 28], betta: [9, 27], angelfish: [14, 28], discus: [7, 28],
 })[profile.value])
+
+// Each rendered fish needs its own SVG clipping ID.
+const bodyClipId = `fish-body-${useId()}`
+
+// Reusable markings, clipped to the chosen fish's body.
+const patternPaths = {
+  plain: [],
+
+  stripe: [
+    'M5 26H44V29H5Z',
+  ],
+
+  stripes: [
+    'M5 23H44V25H5Z',
+    'M5 29H44V31H5Z',
+    'M5 35H44V37H5Z',
+  ],
+
+  bands: [
+    'M12 5H16V50H12Z',
+    'M23 5H27V50H23Z',
+    'M34 5H38V50H34Z',
+  ],
+
+  spot: [
+    'M32 28a4 4 0 1 0-8 0a4 4 0 1 0 8 0',
+  ],
+
+  spots: [
+    'M16 25h2v2h-2Z',
+    'M23 29h2v2h-2Z',
+    'M30 24h2v2h-2Z',
+    'M36 29h2v2h-2Z',
+    'M19 34h2v2h-2Z',
+    'M29 37h2v2h-2Z',
+    'M20 18h2v2h-2Z',
+    'M31 16h2v2h-2Z',
+  ],
+
+  wedge: [
+    'M26 27L42 23L39 34Z',
+  ],
+
+  tail: [
+    'M36 5H41V50H36Z',
+  ],
+
+  panda: [
+    'M8 18H13V36H8Z',
+    'M35 18H41V38H35Z',
+  ],
+
+  belly: [
+    'M12 30Q26 25 39 31L37 43H12Z',
+  ],
+}
+
+const displayMarkings = computed(() => {
+  // Preserve the original fish's existing detailed markings.
+  const existing = markings[species.value]
+  if (existing) return existing
+
+  const pattern = patternPaths[appearance.value.pattern] ?? []
+
+  return pattern.map(d => ({
+    d,
+    fill: appearance.value.accent,
+  }))
+})
 </script>
 
 <template>
   <svg class="fish-icon" viewBox="0 0 56 56" width="56" height="56" aria-hidden="true">
+    <defs>
+       <clipPath :id="bodyClipId" clipPathUnits="userSpaceOnUse">
+        <path :d="interior.body" />
+       </clipPath>
+    </defs>
     <g :transform="transform">
       <path :d="interior.fins" :fill="palette.fins" />
       <path :d="interior.body" :fill="palette.body" />
-      <path v-for="(mark, index) in markings[species]" :key="`mark-${index}`"
-        :d="mark.d" :fill="mark.fill" :stroke="mark.stroke" stroke-width="1.4" stroke-linecap="round" />
+      <g :clip-path="markings[species] ? null : `url(#${bodyClipId})`">
+  <path
+    v-for="(mark, index) in displayMarkings"
+    :key="`mark-${index}`"
+    :d="mark.d"
+    :fill="mark.fill"
+    :stroke="mark.stroke"
+    stroke-width="1.4"
+    stroke-linecap="round"
+  />
+</g>
       <g fill="#182f34">
         <path v-for="(path, index) in paths" :key="index" :d="path"
           :fill="species === 'neon-tetra' && index === 3 ? '#3ac4d2' : undefined" />

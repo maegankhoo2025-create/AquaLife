@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { checkCompatibility } from '../stores/game'
 import PearlCount from './PearlCount.vue'
 import ItemVisual from './ItemVisual.vue'
+import FishGallery from './FishGallery.vue'
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -21,10 +22,12 @@ const compatibility = computed(() => checkCompatibility(props.item, props.tank))
     class="al-card item-card h-100"
     :class="{ 'item-card--conflict': !compatibility.ok }"
   >
-    <button class="item-card__main" type="button" aria-haspopup="dialog" @click="emit('open', item)">
-      <span class="al-ph item-card__photo">
-        <ItemVisual :item="item" />
-      </span>
+   <div class="al-ph item-card__photo">
+  <FishGallery v-if="item.category === 'fish'" :item="item" />
+  <ItemVisual v-else :item="item" />
+</div>
+
+<button class="item-card__main" type="button" aria-haspopup="dialog" @click="emit('open', item)">
 
       <span class="d-block fw-bold mt-2">{{ item.name }}</span>
       <span v-if="item.sci" class="d-block small fst-italic text-muted-al">{{ item.sci }}</span>

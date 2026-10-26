@@ -2,8 +2,31 @@ const express = require('express')
 const speciesConditions = require('../data/speciesConditions')
 const router = express.Router()
 
+// Aquarist Atlas uses different scientific names for these species.
+const atlasNames = {
+  'Hyphessobrycon eques': 'Megalamphodus eques',
+  'Puntius titteya': 'Rohanella titteya',
+  'Corydoras paleatus': 'Hoplisoma paleatum',
+  'Corydoras aeneus': 'Osteogaster aenea',
+  'Trichogaster lalius': 'Trichogaster fasciata',
+}
+
+const photoNames = {
+  'Hyphessobrycon eques': 'Megalamphodus eques',
+  'Moenkhausia pittieri': 'Makunaima pittieri',
+  'Puntius titteya': 'Rohanella titteya',
+  'Corydoras paleatus': 'Hoplisoma paleatum',
+  'Corydoras aeneus': 'Osteogaster aenea',
+  'Corydoras panda': 'Hoplisoma panda',
+  'Corydoras pygmaeus': 'Gastrodermus pygmaeus',
+  'Trichogaster lalius': 'Trichogaster fasciata',
+}
+
 async function getConditions(scientificName) {
-  const slug = scientificName.trim().toLowerCase().replace(/\s+/g, '-')
+  const atlasName =
+  atlasNames[scientificName.trim()] ?? scientificName.trim()
+
+  const slug = atlasName.toLowerCase().replace(/\s+/g, '-')
   const url =
     `https://www.aquaristatlas.com/api/v1/species/${encodeURIComponent(slug)}.json`
 
@@ -18,12 +41,18 @@ async function getConditions(scientificName) {
 
     // Confirm the response belongs to the requested species.
     if (
-      data.scientificName?.toLowerCase() !== scientificName.toLowerCase()
+      data.scientificName?.toLowerCase() !== atlasName.toLowerCase()
     ) {
       return null
     }
 
     const water = data.facts?.water
+   
+    const sizeData = data.facts?.size
+    
+    const size = Number.isFinite(sizeData?.maxLengthCm) && sizeData.maxLengthCm > 0 ? sizeData.maxLengthCm : null
+
+    const sizeType = size === null ? null : sizeData.lengthType ?? null
 
     if (
       !water ||
@@ -40,6 +69,8 @@ async function getConditions(scientificName) {
     return {
       temperature: { min: water.tempMinC, max: water.tempMaxC },
       ph: { min: water.phMin, max: water.phMax },
+      size,
+      sizeType,
       source: 'Aquarist Atlas',
       sourceUrl: data.url,
       dataType: 'live-api',
@@ -80,8 +111,9 @@ async function getConditions(scientificName) {
     let photo = null
 
     try {
+      const photoName = photoNames[data.canonicalName] ?? data.canonicalName
       const photoUrl = new URL('https://api.inaturalist.org/v1/taxa')
-      photoUrl.searchParams.set('q', data.canonicalName)
+      photoUrl.searchParams.set('q', photoName)
       photoUrl.searchParams.set('rank', 'species')
       photoUrl.searchParams.set('per_page', '5')
 
@@ -95,23 +127,89 @@ async function getConditions(scientificName) {
         const taxon = photoData.results?.find(
           item =>
             item.is_active &&
-            item.name?.toLowerCase() === data.canonicalName.toLowerCase()
+            item.name?.toLowerCase() === photoName.toLowerCase()
         )
 
         commonName = taxon?.preferred_common_name ?? null
 
         const image = taxon?.default_photo
+          
 
-        if (image?.medium_url && image.license_code?.startsWith('cc-')) {
+        const allowedPhotoLicenses = [
+          'cc0',
+          'pd',
+          'cc-by',
+          'cc-by-sa',
+          'cc-by-nc',
+          'cc-by-nc-sa',
+          'cc-by-nd',
+          'cc-by-nc-nd',
+        ]
+
+        // First, try the species' default photo.
+        if (
+          image?.medium_url &&
+          allowedPhotoLicenses.includes(
+            image.license_code?.toLowerCase()
+          )
+        ) {
           photo = {
             url: image.medium_url,
             attribution: image.attribution,
             license: image.license_code,
             source: 'iNaturalist',
             sourceUrl: `https://www.inaturalist.org/photos/${image.id}`,
+          }
         }
-    }
-}
+
+        // If the default photo is unusable, check observation photos.
+        if (!photo && taxon?.id) {
+          const observationUrl = new URL(
+            'https://api.inaturalist.org/v1/observations'
+          )
+
+          observationUrl.searchParams.set('taxon_id', String(taxon.id))
+          observationUrl.searchParams.set('photos', 'true')
+          observationUrl.searchParams.set('per_page', '10')
+          observationUrl.searchParams.set(
+            'photo_license',
+            'cc0,cc-by,cc-by-sa,cc-by-nc,cc-by-nc-sa,cc-by-nd,cc-by-nc-nd'
+          )
+
+          const observationResponse = await fetch(observationUrl, {
+            signal: AbortSignal.timeout(10000),
+          })
+
+          if (observationResponse.ok) {
+            const observationData = await observationResponse.json()
+
+            for (const observation of observationData.results ?? []) {
+              if (observation.taxon?.id !== taxon.id) continue
+
+              const usablePhoto = observation.photos?.find(candidate =>
+                !candidate.hidden &&
+                candidate.url &&
+                allowedPhotoLicenses.includes(
+                  candidate.license_code?.toLowerCase()
+                )
+              )
+
+              if (usablePhoto) {
+                photo = {
+                  url: usablePhoto.url.replace('/square.', '/medium.'),
+                  attribution: usablePhoto.attribution,
+                  license: usablePhoto.license_code,
+                  source: 'iNaturalist',
+                  sourceUrl:
+                    `https://www.inaturalist.org/photos/${usablePhoto.id}`,
+                }
+
+                break
+              }
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error('Photo lookup failed:', error.message)
     }
@@ -131,6 +229,8 @@ async function getConditions(scientificName) {
       source: 'GBIF',
       photo,
       conditions,
+      size: conditions?.size ?? null,
+      sizeType: conditions?.sizeType ?? null,
          })
         } 
 

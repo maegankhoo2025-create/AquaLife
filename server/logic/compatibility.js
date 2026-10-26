@@ -39,33 +39,100 @@ function safeRange(tank) {
 
 // Would this species be happy in this tank?
 // Returns { ok, reasons } where reasons is a list of sentences explaining each problem.
-function checkCompatibility(species, tank) {
+function checkCompatibility(species, tank, quantity = 1) {
   const reasons = []
 
-  const { temperature, ph } = tank.conditions
-  if (temperature < species.temp[0] || temperature > species.temp[1]) {
-    reasons.push(
-      `${tank.name} is ${Number(temperature.toFixed(1))}°C, but ${species.name} needs ${species.temp[0]}–${species.temp[1]}°C.`,
-    )
-  }
-  if (ph < species.ph[0] || ph > species.ph[1]) {
-    reasons.push(`${tank.name} has pH ${Number(ph.toFixed(2))}, but ${species.name} needs pH ${species.ph[0]}–${species.ph[1]}.`)
+  if (!species) {
+    return {
+      ok: false,
+      reasons: ['Fish information is unavailable. Please refresh and try again.'],
+    }
   }
 
-  // An aggressive fish cannot share a tank with fish that are not aggressive.
-  const tankMates = tankSpecies(tank).filter((mate) => mate.id !== species.id)
+  const { temperature, ph } = tank.conditions
+
+  if (temperature < species.temp[0] || temperature > species.temp[1]) {
+    reasons.push(
+      `${tank.name} is ${Number(temperature.toFixed(1))}°C, but ${species.name} needs ${species.temp[0]}–${species.temp[1]}°C.`
+    )
+  }
+
+  if (ph < species.ph[0] || ph > species.ph[1]) {
+    reasons.push(
+      `${tank.name} has pH ${Number(ph.toFixed(2))}, but ${species.name} needs pH ${species.ph[0]}–${species.ph[1]}.`
+    )
+  }
+
+  const hasFlag = (fish, flag) =>
+    fish.behaviourFlags?.includes(flag) ?? false
+
+  const tankMates = tankSpecies(tank)
+  const otherSpecies = tankMates.filter(mate => mate.id !== species.id)
+
+  // Keep the existing aggressive-fish warnings.
   if (species.temperament === 'aggressive') {
-    const victims = tankMates.filter((mate) => mate.temperament !== 'aggressive')
+    const victims = otherSpecies.filter(
+      mate => mate.temperament !== 'aggressive'
+    )
+
     if (victims.length > 0) {
-      const names = victims.map((mate) => mate.name).join(', ')
-      reasons.push(`${species.name} is aggressive and may attack: ${names}.`)
+      reasons.push(
+        `${species.name} is aggressive and may attack: ${
+          victims.map(mate => mate.name).join(', ')
+        }.`
+      )
     }
   } else {
-    const bullies = tankMates.filter((mate) => mate.temperament === 'aggressive')
+    const bullies = otherSpecies.filter(
+      mate => mate.temperament === 'aggressive'
+    )
+
     if (bullies.length > 0) {
-      const names = bullies.map((mate) => mate.name).join(', ')
-      reasons.push(`${species.name} may be attacked by aggressive tank mates: ${names}.`)
+      reasons.push(
+        `${species.name} may be attacked by aggressive tank mates: ${
+          bullies.map(mate => mate.name).join(', ')
+        }.`
+      )
     }
+  }
+
+  // Predation is separate from the temperament label.
+  // This is a caution, not a prediction based on actual fish sizes.
+  if (
+    hasFlag(species, 'may-eat-small-fish') &&
+    otherSpecies.length > 0
+  ) {
+    reasons.push(
+      `${species.name} may eat smaller fish. Review sizes before combining with: ${
+        otherSpecies.map(mate => mate.name).join(', ')
+      }.`
+    )
+  }
+
+  const predators = otherSpecies.filter(
+    mate => hasFlag(mate, 'may-eat-small-fish')
+  )
+
+  if (predators.length > 0) {
+    reasons.push(
+      `Review sizes before adding ${species.name}: ${
+        predators.map(mate => mate.name).join(', ')
+      } may eat smaller fish.`
+    )
+  }
+
+  // Do not skip warnings just because both fish are the same species.
+  const existingCount = tank.fish.filter(
+    fish => fish.health > 0 && fish.speciesId === species.id
+  ).length
+
+  if (
+    hasFlag(species, 'same-species-danger') &&
+    existingCount + quantity > 1
+  ) {
+    reasons.push(
+      `Keeping multiple ${species.name} together can cause serious fighting, especially between males. Separate tanks are recommended.`
+    )
   }
 
   return { ok: reasons.length === 0, reasons }

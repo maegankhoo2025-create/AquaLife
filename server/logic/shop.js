@@ -37,7 +37,10 @@ async function purchase({ user, tank, item, quantity = 1, force = false, nicknam
 
     let compatibility = { ok: true, reasons: [] }
     if (item.category === 'fish') {
-      compatibility = checkCompatibility(getSpecies(item.id), freshTank)
+      compatibility = checkCompatibility(
+         getSpecies(item.id),
+         freshTank,
+        quantity )
       if (!compatibility.ok && force !== true) {
         return {
           status: 409,

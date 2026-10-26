@@ -1,0 +1,1452 @@
+[
+  {
+    "id": "neon-tetra",
+    "name": "Neon Tetra",
+    "sci": "Paracheirodon innesi",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      20,
+      26
+    ],
+    "ph": [
+      5,
+      7
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/tetras/paracheirodon-innesi/",
+    "conditionsFetchedAt": "2026-10-26T10:59:33.046Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/71484030/medium.jpg",
+        "attribution": "(c) Blair Chen, some rights reserved (CC BY-NC-SA)",
+        "license": "cc-by-nc-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/71484030"
+      }
+    ],
+    "size": 2.5,
+    "sizeType": "SL"
+  },
+  {
+    "id": "cardinal-tetra",
+    "name": "Cardinal Tetra",
+    "sci": "Paracheirodon axelrodi",
+    "price": 40,
+    "category": "fish",
+    "temp": [
+      24,
+      29
+    ],
+    "ph": [
+      3.5,
+      6.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/tetras/paracheirodon-axelrodi/",
+    "conditionsFetchedAt": "2026-10-26T10:59:33.056Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/354211778/medium.jpeg",
+        "attribution": "(c) daisi_d, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/354211778"
+      }
+    ],
+    "size": 3,
+    "sizeType": "SL"
+  },
+  {
+    "id": "ember-tetra",
+    "name": "Ember Tetra",
+    "sci": "Hyphessobrycon amandae",
+    "price": 25,
+    "category": "fish",
+    "temp": [
+      23,
+      29
+    ],
+    "ph": [
+      5.5,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/tetras/hyphessobrycon-amandae/",
+    "conditionsFetchedAt": "2026-10-26T10:59:33.546Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/90886437/medium.jpg",
+        "attribution": "(c) Chantal Wagner Kornin, some rights reserved (CC BY-NC-ND)",
+        "license": "cc-by-nc-nd",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/90886437"
+      }
+    ],
+    "size": 2,
+    "sizeType": "TL"
+  },
+  {
+    "id": "black-neon-tetra",
+    "name": "Black Neon Tetra",
+    "sci": "Hyphessobrycon herbertaxelrodi",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      20,
+      28
+    ],
+    "ph": [
+      5,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/tetras/hyphessobrycon-herbertaxelrodi/",
+    "conditionsFetchedAt": "2026-10-26T10:59:33.536Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/105329788/medium.jpg",
+        "attribution": "(c) Marcin, some rights reserved (CC BY-NC-ND)",
+        "license": "cc-by-nc-nd",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/105329788"
+      }
+    ],
+    "size": 3.5,
+    "sizeType": "SL"
+  },
+  {
+    "id": "glowlight-tetra",
+    "name": "Glowlight Tetra",
+    "sci": "Hemigrammus erythrozonus",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      23,
+      28
+    ],
+    "ph": [
+      5.5,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/tetras/hemigrammus-erythrozonus/",
+    "conditionsFetchedAt": "2026-10-26T10:59:34.092Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/60778702/medium.jpg",
+        "attribution": "(c) Tetra_Glowlight.jpg, some rights reserved (CC BY)",
+        "license": "cc-by",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/60778702"
+      }
+    ],
+    "size": 3.8,
+    "sizeType": "SL"
+  },
+  {
+    "id": "black-skirt-tetra",
+    "name": "Black Skirt Tetra",
+    "sci": "Gymnocorymbus ternetzi",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      20,
+      26
+    ],
+    "ph": [
+      6,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/tetras/gymnocorymbus-ternetzi/",
+    "conditionsFetchedAt": "2026-10-26T10:59:34.096Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/311139004/medium.jpg",
+        "attribution": "(c) Paulo Robson de Souza, some rights reserved (CC BY-NC), uploaded by Paulo Robson de Souza",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/311139004"
+      }
+    ],
+    "size": 7.5,
+    "sizeType": "SL"
+  },
+  {
+    "id": "lemon-tetra",
+    "name": "Lemon Tetra",
+    "sci": "Hyphessobrycon pulchripinnis",
+    "price": 35,
+    "category": "fish",
+    "temp": [
+      20,
+      28
+    ],
+    "ph": [
+      5,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/tetras/hyphessobrycon-pulchripinnis/",
+    "conditionsFetchedAt": "2026-10-26T10:59:34.567Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2085783/medium.jpg",
+        "attribution": "(c) Waugsberg, some rights reserved (CC BY-SA)",
+        "license": "cc-by-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/2085783"
+      }
+    ],
+    "size": 3.8,
+    "sizeType": "SL"
+  },
+  {
+    "id": "serpae-tetra",
+    "name": "Serpae Tetra",
+    "sci": "Hyphessobrycon eques",
+    "price": 35,
+    "category": "fish",
+    "temp": [
+      20,
+      28
+    ],
+    "ph": [
+      5,
+      7.8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/tetras/megalamphodus-eques/",
+    "conditionsFetchedAt": "2026-10-26T10:59:34.572Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/11070307/medium.jpg",
+        "attribution": "Jan Ševčík, no known copyright restrictions (public domain)",
+        "license": "pd",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/11070307"
+      }
+    ],
+    "size": 4,
+    "sizeType": "SL"
+  },
+  {
+    "id": "diamond-tetra",
+    "name": "Diamond Tetra",
+    "sci": "Moenkhausia pittieri",
+    "price": 45,
+    "category": "fish",
+    "temp": [
+      23,
+      28
+    ],
+    "ph": [
+      6,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/tetras/moenkhausia-pittieri/",
+    "conditionsFetchedAt": "2026-10-26T10:59:35.108Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/53594769/medium.jpg",
+        "attribution": "(c) kevitra, some rights reserved (CC BY-NC-ND)",
+        "license": "cc-by-nc-nd",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/53594769"
+      }
+    ],
+    "size": 5,
+    "sizeType": "TL"
+  },
+  {
+    "id": "x-ray-tetra",
+    "name": "X-ray Tetra",
+    "sci": "Pristella maxillaris",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      22,
+      28
+    ],
+    "ph": [
+      6,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/tetras/pristella-maxillaris/",
+    "conditionsFetchedAt": "2026-10-26T10:59:35.115Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/11070090/medium.jpg",
+        "attribution": "(c) Blair Chen, some rights reserved (CC BY-NC-SA)",
+        "license": "cc-by-nc-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/11070090"
+      }
+    ],
+    "size": 4.5,
+    "sizeType": "TL"
+  },
+  {
+    "id": "guppy",
+    "name": "Guppy",
+    "sci": "Poecilia reticulata",
+    "price": 25,
+    "category": "fish",
+    "temp": [
+      22,
+      28
+    ],
+    "ph": [
+      7,
+      8.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/livebearers/poecilia-reticulata/",
+    "conditionsFetchedAt": "2026-10-26T10:59:35.568Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/634774007/medium.jpg",
+        "attribution": "(c) kary, some rights reserved (CC BY-NC), uploaded by kary",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/634774007"
+      }
+    ],
+    "size": 6,
+    "sizeType": "TL"
+  },
+  {
+    "id": "endler",
+    "name": "Endler's Livebearer",
+    "sci": "Poecilia wingei",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      22,
+      28
+    ],
+    "ph": [
+      6.5,
+      8.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/livebearers/poecilia-wingei/",
+    "conditionsFetchedAt": "2026-10-26T10:59:35.575Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/87513229/medium.jpg",
+        "attribution": "(c) Dgrummon, some rights reserved (CC BY-SA)",
+        "license": "cc-by-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/87513229"
+      }
+    ],
+    "size": 2,
+    "sizeType": "SL"
+  },
+  {
+    "id": "southern-platy",
+    "name": "Southern Platy",
+    "sci": "Xiphophorus maculatus",
+    "price": 25,
+    "category": "fish",
+    "temp": [
+      18,
+      25
+    ],
+    "ph": [
+      7,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/livebearers/xiphophorus-maculatus/",
+    "conditionsFetchedAt": "2026-10-26T10:59:36.094Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/246740667/medium.jpg",
+        "attribution": "(c) Aquatic Ecosystem Health, some rights reserved (CC BY-NC), uploaded by Aquatic Ecosystem Health",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/246740667"
+      }
+    ],
+    "size": 6,
+    "sizeType": "TL"
+  },
+  {
+    "id": "variatus-platy",
+    "name": "Variatus Platy",
+    "sci": "Xiphophorus variatus",
+    "price": 25,
+    "category": "fish",
+    "temp": [
+      15,
+      25
+    ],
+    "ph": [
+      7,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/livebearers/xiphophorus-variatus/",
+    "conditionsFetchedAt": "2026-10-26T10:59:36.105Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/1042387/medium.jpg",
+        "attribution": "(c) Cullen Hanks, some rights reserved (CC BY-NC), uploaded by Cullen Hanks",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/1042387"
+      }
+    ],
+    "size": 7,
+    "sizeType": "TL"
+  },
+  {
+    "id": "swordtail",
+    "name": "Green Swordtail",
+    "sci": "Xiphophorus hellerii",
+    "price": 35,
+    "category": "fish",
+    "temp": [
+      22,
+      28
+    ],
+    "ph": [
+      7,
+      8.3
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/livebearers/xiphophorus-hellerii/",
+    "conditionsFetchedAt": "2026-10-26T10:59:36.639Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/6784519/medium.jpeg",
+        "attribution": "(c) joe_cutler, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/6784519"
+      }
+    ],
+    "size": 14,
+    "sizeType": "TL"
+  },
+  {
+    "id": "common-molly",
+    "name": "Common Molly",
+    "sci": "Poecilia sphenops",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      18,
+      28
+    ],
+    "ph": [
+      7.5,
+      8.2
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/livebearers/poecilia-sphenops/",
+    "conditionsFetchedAt": "2026-10-26T10:59:36.613Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/208075679/medium.jpg",
+        "attribution": "(c) Mark Henry Sabaj, some rights reserved (CC BY-NC), uploaded by Mark Henry Sabaj",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/208075679"
+      }
+    ],
+    "size": 7.5,
+    "sizeType": "SL"
+  },
+  {
+    "id": "sailfin-molly",
+    "name": "Sailfin Molly",
+    "sci": "Poecilia latipinna",
+    "price": 40,
+    "category": "fish",
+    "temp": [
+      20,
+      28
+    ],
+    "ph": [
+      7.5,
+      8.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/livebearers/poecilia-latipinna/",
+    "conditionsFetchedAt": "2026-10-26T10:59:37.067Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/248665389/medium.jpg",
+        "attribution": "(c) Eric C. Maxwell, some rights reserved (CC BY-NC-ND), uploaded by Eric C. Maxwell",
+        "license": "cc-by-nc-nd",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/248665389"
+      }
+    ],
+    "size": 15,
+    "sizeType": "TL"
+  },
+  {
+    "id": "zebra-danio",
+    "name": "Zebra Danio",
+    "sci": "Danio rerio",
+    "price": 20,
+    "category": "fish",
+    "temp": [
+      18,
+      26
+    ],
+    "ph": [
+      6,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/danios/danio-rerio/",
+    "conditionsFetchedAt": "2026-10-26T10:59:37.093Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/11066492/medium.jpg",
+        "attribution": "(c) Tohru Murakami, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/11066492"
+      }
+    ],
+    "size": 5,
+    "sizeType": "TL"
+  },
+  {
+    "id": "pearl-danio",
+    "name": "Pearl Danio",
+    "sci": "Danio albolineatus",
+    "price": 25,
+    "category": "fish",
+    "temp": [
+      18,
+      24
+    ],
+    "ph": [
+      6,
+      7.2
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/danios/danio-albolineatus/",
+    "conditionsFetchedAt": "2026-10-26T10:59:38.310Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/750596192/medium.jpg",
+        "attribution": "(c) dileri, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/750596192"
+      }
+    ],
+    "size": 3,
+    "sizeType": "SL"
+  },
+  {
+    "id": "celestial-pearl-danio",
+    "name": "Celestial Pearl Danio",
+    "sci": "Danio margaritatus",
+    "price": 50,
+    "category": "fish",
+    "temp": [
+      20,
+      24
+    ],
+    "ph": [
+      7,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/danios/danio-margaritatus/",
+    "conditionsFetchedAt": "2026-10-26T10:59:37.559Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/678036400/medium.jpg",
+        "attribution": "(c) Australasian Aquatic Survey and Assessment, some rights reserved (CC BY-NC-ND), uploaded by Australasian Aquatic Survey and Assessment",
+        "license": "cc-by-nc-nd",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/678036400"
+      }
+    ],
+    "size": 2.5,
+    "sizeType": "TL"
+  },
+  {
+    "id": "harlequin-rasbora",
+    "name": "Harlequin Rasbora",
+    "sci": "Trigonostigma heteromorpha",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      23,
+      28
+    ],
+    "ph": [
+      5.5,
+      6.8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/danios/trigonostigma-heteromorpha/",
+    "conditionsFetchedAt": "2026-10-26T10:59:38.032Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/358133948/medium.jpg",
+        "attribution": "(c) sharkdevotee, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/358133948"
+      }
+    ],
+    "size": 4.5,
+    "sizeType": "TL"
+  },
+  {
+    "id": "lambchop-rasbora",
+    "name": "Lambchop Rasbora",
+    "sci": "Trigonostigma espei",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      23,
+      28
+    ],
+    "ph": [
+      5.5,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/danios/trigonostigma-espei/",
+    "conditionsFetchedAt": "2026-10-26T10:59:38.491Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/76423910/medium.jpg",
+        "attribution": "(c) Atulbhats, some rights reserved (CC BY-SA)",
+        "license": "cc-by-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/76423910"
+      }
+    ],
+    "size": 3.2,
+    "sizeType": "SL"
+  },
+  {
+    "id": "glowlight-rasbora",
+    "name": "Glowlight Rasbora",
+    "sci": "Trigonostigma hengeli",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      23,
+      28
+    ],
+    "ph": [
+      5,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/danios/trigonostigma-hengeli/",
+    "conditionsFetchedAt": "2026-10-26T10:59:38.783Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/350861740/medium.jpg",
+        "attribution": "(c) -serwacy01-, some rights reserved (CC BY-SA)",
+        "license": "cc-by-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/350861740"
+      }
+    ],
+    "size": 3,
+    "sizeType": "SL"
+  },
+  {
+    "id": "chili-rasbora",
+    "name": "Chili Rasbora",
+    "sci": "Boraras brigittae",
+    "price": 40,
+    "category": "fish",
+    "temp": [
+      22,
+      28
+    ],
+    "ph": [
+      4,
+      7
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/danios/boraras-brigittae/",
+    "conditionsFetchedAt": "2026-10-26T10:59:38.984Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/17503267/medium.jpg",
+        "attribution": "(c) LeokaHU, some rights reserved (CC BY-SA)",
+        "license": "cc-by-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/17503267"
+      }
+    ],
+    "size": 2,
+    "sizeType": "SL"
+  },
+  {
+    "id": "scissortail-rasbora",
+    "name": "Scissortail Rasbora",
+    "sci": "Rasbora trilineata",
+    "price": 35,
+    "category": "fish",
+    "temp": [
+      22,
+      25
+    ],
+    "ph": [
+      5,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/danios/rasbora-trilineata/",
+    "conditionsFetchedAt": "2026-10-26T10:59:40.175Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/755026304/medium.jpg",
+        "attribution": "(c) Nathan Kane, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/755026304"
+      }
+    ],
+    "size": 13,
+    "sizeType": "TL"
+  },
+  {
+    "id": "tiger-barb",
+    "name": "Tiger Barb",
+    "sci": "Puntigrus tetrazona",
+    "price": 35,
+    "category": "fish",
+    "temp": [
+      22,
+      26
+    ],
+    "ph": [
+      6,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/barbs/puntigrus-tetrazona/",
+    "conditionsFetchedAt": "2026-10-26T10:59:39.500Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/208072283/medium.jpeg",
+        "attribution": "(c) Mark Henry Sabaj, some rights reserved (CC BY-NC), uploaded by Mark Henry Sabaj",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/208072283"
+      }
+    ],
+    "size": 7,
+    "sizeType": "TL"
+  },
+  {
+    "id": "cherry-barb",
+    "name": "Cherry Barb",
+    "sci": "Puntius titteya",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      23,
+      27
+    ],
+    "ph": [
+      6,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/barbs/rohanella-titteya/",
+    "conditionsFetchedAt": "2026-10-26T10:59:40.140Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/11065658/medium.jpg",
+        "attribution": "Jan Ševčík, no known copyright restrictions (public domain)",
+        "license": "pd",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/11065658"
+      }
+    ],
+    "size": 5,
+    "sizeType": "TL"
+  },
+  {
+    "id": "rosy-barb",
+    "name": "Rosy Barb",
+    "sci": "Pethia conchonius",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      18,
+      26
+    ],
+    "ph": [
+      6,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/barbs/pethia-conchonius/",
+    "conditionsFetchedAt": "2026-10-26T10:59:40.728Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/93762835/medium.jpeg",
+        "attribution": "Usien, no known copyright restrictions (public domain)",
+        "license": "pd",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/93762835"
+      }
+    ],
+    "size": 14,
+    "sizeType": "TL"
+  },
+  {
+    "id": "black-ruby-barb",
+    "name": "Black Ruby Barb",
+    "sci": "Pethia nigrofasciata",
+    "price": 40,
+    "category": "fish",
+    "temp": [
+      20,
+      27
+    ],
+    "ph": [
+      5.5,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/barbs/pethia-nigrofasciata/",
+    "conditionsFetchedAt": "2026-10-26T10:59:41.461Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/744223771/medium.jpg",
+        "attribution": "(c) saraalien1, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/744223771"
+      }
+    ],
+    "size": 6.7,
+    "sizeType": "TL"
+  },
+  {
+    "id": "gold-barb",
+    "name": "Gold Barb",
+    "sci": "Barbodes semifasciolatus",
+    "price": 30,
+    "category": "fish",
+    "temp": [
+      18,
+      24
+    ],
+    "ph": [
+      6,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/barbs/barbodes-semifasciolatus/",
+    "conditionsFetchedAt": "2026-10-26T10:59:42.129Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/755025769/medium.jpg",
+        "attribution": "(c) Nathan Kane, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/755025769"
+      }
+    ],
+    "size": 7.5,
+    "sizeType": "TL"
+  },
+  {
+    "id": "corydoras",
+    "name": "Peppered Cory",
+    "sci": "Corydoras paleatus",
+    "price": 45,
+    "category": "fish",
+    "temp": [
+      18,
+      24
+    ],
+    "ph": [
+      6,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/corydoras/hoplisoma-paleatum/",
+    "conditionsFetchedAt": "2026-10-26T10:59:41.910Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/80223802/medium.jpg",
+        "attribution": "(c) h080, some rights reserved (CC BY-SA)",
+        "license": "cc-by-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/80223802"
+      }
+    ],
+    "size": 7.1,
+    "sizeType": "SL"
+  },
+  {
+    "id": "bronze-cory",
+    "name": "Bronze Cory",
+    "sci": "Corydoras aeneus",
+    "price": 40,
+    "category": "fish",
+    "temp": [
+      22,
+      28
+    ],
+    "ph": [
+      6,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/corydoras/osteogaster-aenea/",
+    "conditionsFetchedAt": "2026-10-26T10:59:42.363Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/347207428/medium.jpeg",
+        "attribution": "(c) Douglas Lopes, some rights reserved (CC BY), uploaded by Douglas Lopes",
+        "license": "cc-by",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/347207428"
+      }
+    ],
+    "size": 7.5,
+    "sizeType": "TL"
+  },
+  {
+    "id": "panda-cory",
+    "name": "Panda Cory",
+    "sci": "Corydoras panda",
+    "price": 50,
+    "category": "fish",
+    "temp": [
+      19,
+      25
+    ],
+    "ph": [
+      6,
+      7.4
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/corydoras/corydoras-panda/",
+    "conditionsFetchedAt": "2026-10-26T10:59:42.578Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/80666009/medium.jpg",
+        "attribution": "(c) Dornenwolf，保留部分权利（CC BY）",
+        "license": "cc-by",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/80666009"
+      }
+    ],
+    "size": 3.8,
+    "sizeType": "SL"
+  },
+  {
+    "id": "pygmy-cory",
+    "name": "Pygmy Cory",
+    "sci": "Corydoras pygmaeus",
+    "price": 45,
+    "category": "fish",
+    "temp": [
+      22,
+      26
+    ],
+    "ph": [
+      6,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/corydoras/corydoras-pygmaeus/",
+    "conditionsFetchedAt": "2026-10-26T10:59:42.885Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/65981035/medium.jpg",
+        "attribution": "(c) Carnat Joel, some rights reserved (CC BY)",
+        "license": "cc-by",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/65981035"
+      }
+    ],
+    "size": 3,
+    "sizeType": "TL"
+  },
+  {
+    "id": "bristlenose-pleco",
+    "name": "Bristlenose Pleco",
+    "sci": "Ancistrus cirrhosus",
+    "price": 70,
+    "category": "fish",
+    "temp": [
+      20,
+      28
+    ],
+    "ph": [
+      6,
+      7.8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/plecos/ancistrus-cirrhosus/",
+    "conditionsFetchedAt": "2026-10-26T10:59:43.927Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/713118903/medium.jpg",
+        "attribution": "(c) Nicholas Dintelmann, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/713118903"
+      }
+    ],
+    "size": 13,
+    "sizeType": "TL"
+  },
+  {
+    "id": "kuhli-loach",
+    "name": "Kuhli Loach",
+    "sci": "Pangio kuhlii",
+    "price": 45,
+    "category": "fish",
+    "temp": [
+      24,
+      30
+    ],
+    "ph": [
+      5.5,
+      6.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/loaches/pangio-kuhlii/",
+    "conditionsFetchedAt": "2026-10-26T10:59:43.369Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/71715847/medium.jpg",
+        "attribution": "(c) \nRobert Mollik, some rights reserved (CC BY-SA)",
+        "license": "cc-by-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/71715847"
+      }
+    ],
+    "size": 12,
+    "sizeType": "TL"
+  },
+  {
+    "id": "betta",
+    "name": "Betta",
+    "sci": "Betta splendens",
+    "price": 60,
+    "category": "fish",
+    "temp": [
+      24,
+      28
+    ],
+    "ph": [
+      5.5,
+      7
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/bettas/betta-splendens/",
+    "conditionsFetchedAt": "2026-10-26T10:59:44.430Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/755825682/medium.jpg",
+        "attribution": "(c) plantss4ever, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/755825682"
+      }
+    ],
+    "size": 7,
+    "sizeType": "SL"
+  },
+  {
+    "id": "honey-gourami",
+    "name": "Honey Gourami",
+    "sci": "Trichogaster chuna",
+    "price": 45,
+    "category": "fish",
+    "temp": [
+      22,
+      27
+    ],
+    "ph": [
+      6,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/gouramis/trichogaster-chuna/",
+    "conditionsFetchedAt": "2026-10-26T10:59:44.390Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/96911304/medium.jpg",
+        "attribution": "(c) \nMade be Uploader, some rights reserved (CC BY-SA)",
+        "license": "cc-by-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/96911304"
+      }
+    ],
+    "size": 13.7,
+    "sizeType": "TL"
+  },
+  {
+    "id": "dwarf-gourami",
+    "name": "Dwarf Gourami",
+    "sci": "Trichogaster lalius",
+    "price": 50,
+    "category": "fish",
+    "temp": [
+      25,
+      28
+    ],
+    "ph": [
+      6,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/gouramis/trichogaster-fasciata/",
+    "conditionsFetchedAt": "2026-10-26T10:59:44.902Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/118550776/medium.jpg",
+        "attribution": "(c) khnewaz, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/118550776"
+      }
+    ],
+    "size": 9.5,
+    "sizeType": "TL"
+  },
+  {
+    "id": "pearl-gourami",
+    "name": "Pearl Gourami",
+    "sci": "Trichopodus leerii",
+    "price": 60,
+    "category": "fish",
+    "temp": [
+      24,
+      30
+    ],
+    "ph": [
+      5.5,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/gouramis/trichopodus-leerii/",
+    "conditionsFetchedAt": "2026-10-26T10:59:44.933Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/80647353/medium.jpg",
+        "attribution": "(c) BEDO (Thailand), some rights reserved (CC BY-SA)",
+        "license": "cc-by-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/80647353"
+      }
+    ],
+    "size": 12,
+    "sizeType": "TL"
+  },
+  {
+    "id": "sparkling-gourami",
+    "name": "Sparkling Gourami",
+    "sci": "Trichopsis pumila",
+    "price": 40,
+    "category": "fish",
+    "temp": [
+      22,
+      28
+    ],
+    "ph": [
+      5,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/gouramis/trichopsis-pumila/",
+    "conditionsFetchedAt": "2026-10-26T10:59:46.014Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/743251614/medium.jpg",
+        "attribution": "(c) ธนวัฒน์ แพงโตนด, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/743251614"
+      }
+    ],
+    "size": 4,
+    "sizeType": "TL"
+  },
+  {
+    "id": "angelfish",
+    "name": "Angelfish",
+    "sci": "Pterophyllum scalare",
+    "price": 90,
+    "category": "fish",
+    "temp": [
+      24,
+      30
+    ],
+    "ph": [
+      5.5,
+      7.4
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/species/pterophyllum-scalare/",
+    "conditionsFetchedAt": "2026-10-26T10:59:45.388Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/138657562/medium.jpeg",
+        "attribution": "(c) \nSzabi237, some rights reserved (CC BY)",
+        "license": "cc-by",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/138657562"
+      }
+    ],
+    "size": 15,
+    "sizeType": "SL"
+  },
+  {
+    "id": "discus",
+    "name": "Discus",
+    "sci": "Symphysodon aequifasciatus",
+    "price": 200,
+    "category": "fish",
+    "temp": [
+      26,
+      30
+    ],
+    "ph": [
+      5,
+      7
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/species/symphysodon-aequifasciatus/",
+    "conditionsFetchedAt": "2026-10-26T10:59:45.837Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/111080733/medium.jpg",
+        "attribution": "(c) spoonfayse, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/111080733"
+      }
+    ],
+    "size": 13.7,
+    "sizeType": "SL"
+  },
+  {
+    "id": "oscar",
+    "name": "Oscar",
+    "sci": "Astronotus ocellatus",
+    "price": 150,
+    "category": "fish",
+    "temp": [
+      23,
+      28
+    ],
+    "ph": [
+      6,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/species/astronotus-ocellatus/",
+    "conditionsFetchedAt": "2026-10-26T10:59:46.357Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/533128/medium.jpg",
+        "attribution": "(c) Amything, some rights reserved (CC BY-SA)",
+        "license": "cc-by-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/533128"
+      }
+    ],
+    "size": 45.7,
+    "sizeType": "TL"
+  },
+  {
+    "id": "german-blue-ram",
+    "name": "German Blue Ram",
+    "sci": "Mikrogeophagus ramirezi",
+    "price": 80,
+    "category": "fish",
+    "temp": [
+      27,
+      30
+    ],
+    "ph": [
+      5,
+      6.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/species/mikrogeophagus-ramirezi/",
+    "conditionsFetchedAt": "2026-10-26T10:59:46.542Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/67141787/medium.jpg",
+        "attribution": "(c) Claudio Maureira, some rights reserved (CC BY-NC-SA), uploaded by Claudio Maureira",
+        "license": "cc-by-nc-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/67141787"
+      }
+    ],
+    "size": 4.2,
+    "sizeType": "SL"
+  },
+  {
+    "id": "bolivian-ram",
+    "name": "Bolivian Ram",
+    "sci": "Mikrogeophagus altispinosus",
+    "price": 70,
+    "category": "fish",
+    "temp": [
+      24,
+      28
+    ],
+    "ph": [
+      6,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/species/mikrogeophagus-altispinosus/",
+    "conditionsFetchedAt": "2026-10-26T10:59:46.876Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/11371936/medium.jpg",
+        "attribution": "(c) Rick Leche - Photography, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/11371936"
+      }
+    ],
+    "size": 5.6,
+    "sizeType": "SL"
+  },
+  {
+    "id": "kribensis",
+    "name": "Kribensis",
+    "sci": "Pelvicachromis pulcher",
+    "price": 65,
+    "category": "fish",
+    "temp": [
+      24,
+      27
+    ],
+    "ph": [
+      5,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/species/pelvicachromis-pulcher/",
+    "conditionsFetchedAt": "2026-10-26T10:59:47.061Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/96239419/medium.jpg",
+        "attribution": "(c) Tino Strauss, some rights reserved (CC BY-SA)",
+        "license": "cc-by-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/96239419"
+      }
+    ],
+    "size": 11,
+    "sizeType": "TL"
+  },
+  {
+    "id": "goldfish",
+    "name": "Goldfish",
+    "sci": "Carassius auratus",
+    "price": 40,
+    "category": "fish",
+    "temp": [
+      0,
+      41
+    ],
+    "ph": [
+      6,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/barbs/carassius-auratus/",
+    "conditionsFetchedAt": "2026-10-26T10:59:48.149Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/755721736/medium.jpg",
+        "attribution": "(c) Sébastien, some rights reserved (CC BY-NC)",
+        "license": "cc-by-nc",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/755721736"
+      }
+    ],
+    "size": 48,
+    "sizeType": "TL"
+  },
+  {
+    "id": "medaka",
+    "name": "Japanese Ricefish",
+    "sci": "Oryzias latipes",
+    "price": 35,
+    "category": "fish",
+    "temp": [
+      18,
+      24
+    ],
+    "ph": [
+      7,
+      8
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/ricefish/oryzias-latipes/",
+    "conditionsFetchedAt": "2026-10-26T10:59:47.544Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/94251848/medium.jpg",
+        "attribution": "(c) 根川孝太郎, some rights reserved (CC BY-SA)",
+        "license": "cc-by-sa",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/94251848"
+      }
+    ],
+    "size": 4,
+    "sizeType": "SL"
+  },
+  {
+    "id": "dwarf-neon-rainbowfish",
+    "name": "Dwarf Neon Rainbowfish",
+    "sci": "Melanotaenia praecox",
+    "price": 60,
+    "category": "fish",
+    "temp": [
+      22,
+      28
+    ],
+    "ph": [
+      6,
+      7.5
+    ],
+    "conditionsSource": "Aquarist Atlas",
+    "conditionsSourceUrl": "https://www.aquaristatlas.com/rainbowfish/melanotaenia-praecox/",
+    "conditionsFetchedAt": "2026-10-26T10:59:48.109Z",
+    "photos": [
+      {
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/99090908/medium.jpeg",
+        "attribution": "Leo-nie-weh-oh, no known copyright restrictions (public domain)",
+        "license": "pd",
+        "source": "iNaturalist",
+        "sourceUrl": "https://www.inaturalist.org/photos/99090908"
+      }
+    ],
+    "size": 5,
+    "sizeType": "SL"
+  }
+]

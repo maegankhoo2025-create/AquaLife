@@ -7,6 +7,7 @@ import { checkCompatibility, conditionReading, game } from '../stores/game'
 import AlModal from './AlModal.vue'
 import PearlCount from './PearlCount.vue'
 import ItemVisual from './ItemVisual.vue'
+import FishGallery from './FishGallery.vue'
 
 const props = defineProps({
   item: { type: Object, default: null }, // null means the dialog is closed
@@ -30,9 +31,16 @@ const stats = computed(() => {
   if (item.category === 'fish') {
     list.push(
       { label: 'Temperament', value: item.temperament },
+      {  label: 'Temperature',  value: item.temp?.length === 2 ? `${item.temp[0]}–${item.temp[1]}°C`
+        : 'Unavailable', },
+      { label: 'pH',
+      value: item.ph?.length === 2 ? `${item.ph[0]}–${item.ph[1]}` : 'Unavailable', },
      
       
-      { label: 'Adult size', value: Number.isFinite(item.size) ? `${conditionReading(item.size, 'size')} cm` : 'Unavailable' },
+    { label: 'Maximum recorded size',
+     value: Number.isFinite(item.size) ? `${conditionReading(item.size, 'size')} cm${item.sizeType ? ` (${item.sizeType})` : ''}`
+    : 'Unavailable',
+},
     )
   }
   return list
@@ -40,7 +48,10 @@ const stats = computed(() => {
 
 // One line per tank saying whether the item fits there.
 const tankChecks = computed(() =>
-  game.tanks.map((tank) => ({ tank, ...checkCompatibility(props.item, tank) })),
+  game.tanks.map(tank => ({
+    tank,
+    ...checkCompatibility(props.item, tank, quantity.value),
+  })),
 )
 
 const total = computed(() => props.item.price * quantity.value)
@@ -53,11 +64,15 @@ const installed = computed(() => props.item?.category === 'equipment'
   <AlModal :open="item !== null" :title="item ? item.name : ''" @close="emit('close')">
     <div v-if="item" class="row g-3">
       <div class="col-12 col-sm-5">
-        <div class="al-ph gallery">
-          <ItemVisual :item="item" />
-        </div>
-      </div>
-
+       <div class="al-ph gallery">
+  <FishGallery
+    v-if="item.category === 'fish'"
+    :key="item.id"
+    :item="item"
+  />
+  <ItemVisual v-else :item="item" />
+  </div>
+  </div>
       <div class="col-12 col-sm-7">
         <p v-if="item.sci" class="fst-italic text-muted-al mb-1">{{ item.sci }}</p>
         <p>{{ item.blurb }}</p>
@@ -73,12 +88,17 @@ const installed = computed(() => props.item?.category === 'equipment'
   <p>Genus: {{ item.speciesInfo.genus || 'Unavailable' }}</p>
 
   <div v-if="item.speciesInfo.conditions">
+    <h3 class="h6 mt-3">Species reference conditions</h3>
+    <p class="small text-muted-al">
+      These source ranges are for reference. Tank compatibility uses the
+      temperature and pH requirements listed below.
+    </p>
     <p>
-      Species temperature range:
+      Reference temperature::
       {{ conditionReading(item.speciesInfo.conditions.temperature.min, 'temperature') }}–{{ conditionReading(item.speciesInfo.conditions.temperature.max, 'temperature') }}°C
     </p>
     <p>
-      Species pH range:
+      Reference pH::
       {{ conditionReading(item.speciesInfo.conditions.ph.min, 'ph') }}–{{ conditionReading(item.speciesInfo.conditions.ph.max, 'ph') }}
     </p>
     <a
@@ -91,13 +111,56 @@ const installed = computed(() => props.item?.category === 'equipment'
   </div>
   <p v-else>Species conditions unavailable.</p>
 </template>
+        <h3 v-if="item.category === 'fish'" class="h6 mt-3">
+          Tank requirements and care
+        </h3>
 
         <dl v-if="stats.length" class="row g-2 mb-0">
           <div v-for="stat in stats" :key="stat.label" class="col-6">
             <dt class="small text-muted-al fw-normal">{{ stat.label }}</dt>
             <dd class="fw-bold text-capitalize mb-0">{{ stat.value }}</dd>
           </div>
+          <p v-if="item.category === 'fish' && item.sizeType" class="small text-muted-al mt-2">
+            <template v-if="item.sizeType === 'SL'"> SL: standard length, excluding the tail fin.</template>
+            <template v-else-if="item.sizeType === 'TL'">TL: total length, including the tail fin. </template>
+            <template v-else-if="item.sizeType === 'FL'">FL: fork length, measured to the fork of the tail.</template>
+</p>
         </dl>
+        <section
+  v-if="item.category === 'fish' && (item.careNote || item.temperamentNote)"
+  class="mt-3"
+>
+  <h3 class="h6">Care and behaviour</h3>
+
+  <p v-if="item.careNote" class="small mb-2">
+    {{ item.careNote }}
+  </p>
+
+  <p v-if="item.temperamentNote" class="small mb-2">
+    {{ item.temperamentNote }}
+  </p>
+
+  <template v-if="item.careProfileProvenance?.sources?.length">
+    <p class="small text-muted-al mb-1">
+      Care and temperament labels are curated from these references:
+    </p>
+
+    <ul class="small mb-0">
+      <li
+        v-for="source in item.careProfileProvenance.sources"
+        :key="source.url"
+      >
+        <a
+          :href="source.url"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ source.provider }} — {{ source.title }}
+        </a>
+      </li>
+    </ul>
+  </template>
+</section>
       </div>
 
       <div v-if="item.category === 'fish'" class="col-12">
