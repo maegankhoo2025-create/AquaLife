@@ -256,8 +256,8 @@ export const xpPerLevel = XP_PER_LEVEL
 //code to get shop item data from mongodb
 // Turn one Mongo product into the shape the shop pages already use.
 function forShop(product) {
-  return {
-    id: product.id, // slug like 'neon-tetra', not Mongo's _id
+    return {
+    id: product.id,
     category: product.category,
     name: product.name,
     sci: product.sci,
@@ -268,7 +268,18 @@ function forShop(product) {
     temp: product.temp,
     ph: product.ph,
     size: product.size,
+    sizeType: product.sizeType,
     blurb: product.blurb,
+
+    photos: product.photos ?? [],
+    conditionsSource: product.conditionsSource,
+    conditionsSourceUrl: product.conditionsSourceUrl,
+    conditionsFetchedAt: product.conditionsFetchedAt,
+
+    careNote: product.careNote ?? '',
+    temperamentNote: product.temperamentNote ?? '',
+    behaviourFlags: product.behaviourFlags ?? [],
+    careProfileProvenance: product.careProfileProvenance ?? null,
   }
 }
 
@@ -522,34 +533,99 @@ export function healthLabel(health) {
 // reasons is a list of sentences explaining each problem.
 // The server runs the same check when a fish is bought; this copy lets the shop
 // filter and warn instantly without asking the server about every item.
-export function checkCompatibility(item, tank) {
+export function checkCompatibility(item, tank, quantity = 1) {
   const reasons = []
+
+  if (!item) {
+    return {
+      ok: false,
+      reasons: ['Fish information is unavailable. Please refresh and try again.'],
+    }
+  }
+
   if (item.category !== 'fish') return { ok: true, reasons }
 
   const { temperature, ph } = tank.conditions
+
   if (temperature < item.temp[0] || temperature > item.temp[1]) {
     reasons.push(
-      `${tank.name} is ${conditionReading(temperature, 'temperature')}°C, but ${item.name} needs ${item.temp[0]}–${item.temp[1]}°C.`,
+      `${tank.name} is ${conditionReading(temperature, 'temperature')}°C, but ${item.name} needs ${item.temp[0]}–${item.temp[1]}°C.`
     )
   }
+
   if (ph < item.ph[0] || ph > item.ph[1]) {
-    reasons.push(`${tank.name} has pH ${conditionReading(ph, 'ph')}, but ${item.name} needs pH ${item.ph[0]}–${item.ph[1]}.`)
+    reasons.push(
+      `${tank.name} has pH ${conditionReading(ph, 'ph')}, but ${item.name} needs pH ${item.ph[0]}–${item.ph[1]}.`
+    )
   }
 
-  // An aggressive fish cannot share a tank with fish that are not aggressive.
-  const tankMates = tankSpecies(tank).filter((species) => species.id !== item.id)
+  const hasFlag = (fish, flag) =>
+    fish.behaviourFlags?.includes(flag) ?? false
+
+  const tankMates = tankSpecies(tank)
+  const otherSpecies = tankMates.filter(species => species.id !== item.id)
+
   if (item.temperament === 'aggressive') {
-    const victims = tankMates.filter((species) => species.temperament !== 'aggressive')
+    const victims = otherSpecies.filter(
+      species => species.temperament !== 'aggressive'
+    )
+
     if (victims.length > 0) {
-      const names = victims.map((species) => species.name).join(', ')
-      reasons.push(`${item.name} is aggressive and may attack: ${names}.`)
+      reasons.push(
+        `${item.name} is aggressive and may attack: ${
+          victims.map(species => species.name).join(', ')
+        }.`
+      )
     }
   } else {
-    const bullies = tankMates.filter((species) => species.temperament === 'aggressive')
+    const bullies = otherSpecies.filter(
+      species => species.temperament === 'aggressive'
+    )
+
     if (bullies.length > 0) {
-      const names = bullies.map((species) => species.name).join(', ')
-      reasons.push(`${item.name} may be attacked by aggressive tank mates: ${names}.`)
+      reasons.push(
+        `${item.name} may be attacked by aggressive tank mates: ${
+          bullies.map(species => species.name).join(', ')
+        }.`
+      )
     }
+  }
+
+  // Predation warnings are separate from temperament labels.
+  if (
+    hasFlag(item, 'may-eat-small-fish') &&
+    otherSpecies.length > 0
+  ) {
+    reasons.push(
+      `${item.name} may eat smaller fish. Review sizes before combining with: ${
+        otherSpecies.map(species => species.name).join(', ')
+      }.`
+    )
+  }
+
+  const predators = otherSpecies.filter(
+    species => hasFlag(species, 'may-eat-small-fish')
+  )
+
+  if (predators.length > 0) {
+    reasons.push(
+      `Review sizes before adding ${item.name}: ${
+        predators.map(species => species.name).join(', ')
+      } may eat smaller fish.`
+    )
+  }
+
+  const existingCount = tank.fish.filter(
+    fish => fish.health > 0 && fish.speciesId === item.id
+  ).length
+
+  if (
+    hasFlag(item, 'same-species-danger') &&
+    existingCount + quantity > 1
+  ) {
+    reasons.push(
+      `Keeping multiple ${item.name} together can cause serious fighting, especially between males. Separate tanks are recommended.`
+    )
   }
 
   return { ok: reasons.length === 0, reasons }

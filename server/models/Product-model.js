@@ -24,9 +24,37 @@ const productSchema = new mongoose.Schema(
       enum: ['peaceful', 'semi-aggressive', 'aggressive'],
     },
     care: { type: String, enum: ['easy', 'moderate', 'hard'] },
+    careNote: { type: String, default: '' },
+    temperamentNote: { type: String, default: '' },
+    behaviourFlags: { type: [String], default: [] },
+    careProfileProvenance: { dataType: { type: String, default: '' },
+    classificationMethod: { type: String, default: '' },
+    reviewedAt: { type: String, default: '' },
+    reviewStatus: { type: String, default: '' },
+    sourceCareLabel: { type: String, default: '' },
+    identityNote: { type: String, default: '' },
+
+  sources: {
+    type: [
+      {
+        provider: String,
+        title: String,
+        url: String,
+        scope: String,
+        sourceScientificName: String,
+        _id: false,
+      },
+    ],
+    default: [],
+  },
+},
     temp: { type: [Number], default: undefined }, // fish: [min, max]
     ph: { type: [Number], default: undefined },
+    conditionsSource: { type: String, default: '' },
+    conditionsSourceUrl: { type: String, default: '' },
+    conditionsFetchedAt: { type: Date, default: null },
     size: { type: Number, min: 0 }, // cm, fish
+    sizeType: { type: String, default: '' },
     blurb: { type: String, default: '' },
     photos: { type: [photoSchema], default: [] },
   },
