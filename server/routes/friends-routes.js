@@ -61,6 +61,120 @@ router.get('/', handle(async (req, res) => {
   res.json({ friends, incoming, outgoing, inbox: messages, inviteToken: user.inviteToken, pearls: user.pearls })
 }))
 
+// Search users by name or email.
+// The login check at the top of this file already runs first,
+// so this route only works for someone who is logged in.
+router.get('/search', async (req, res) => {
+  // The search text arrives in the address, like /api/friends/search?q=lam
+  let searchText = ''
+  if (typeof req.query.q === 'string') {
+    searchText = req.query.q.trim().toLowerCase()
+  }
+
+  // "la" is long enough to search. "l" is not.
+  if (searchText.length < 2) {
+    return res.json({
+      message: 'Type at least 2 letters to search.',
+      users: [],
+    })
+  }
+
+  // The box on the page also stops at 254 characters.
+  if (searchText.length > 254) {
+    return res.json({
+      message: 'Search text is too long.',
+      users: [],
+    })
+  }
+
+  try {
+    // Ask the database for name and email only.
+    // passwordHash, pearls and the invite token stay out of this list.
+    const allUsers = await User.find({}).select('name email')
+
+    // Accepted friends are left out. People with a waiting request still show,
+    // so the button can say Request sent or Accept.
+    const friendships = await Friendship.find({
+      members: req.socialUser._id,
+      status: 'accepted',
+    })
+
+    const friendIds = []
+    for (let i = 0; i < friendships.length; i++) {
+      const members = friendships[i].members
+      for (let j = 0; j < members.length; j++) {
+        const memberId = String(members[j])
+        const myId = String(req.socialUser._id)
+        if (memberId !== myId) {
+          friendIds.push(memberId)
+        }
+      }
+    }
+
+    const matches = []
+    for (let i = 0; i < allUsers.length; i++) {
+      // The page only shows 10 people.
+      if (matches.length >= 10) {
+        break
+      }
+
+      const person = allUsers[i]
+      const personId = String(person._id)
+      const myId = String(req.socialUser._id)
+
+      // Skip my own account.
+      if (personId === myId) {
+        continue
+      }
+
+      // Skip anyone who is already my friend.
+      let alreadyFriend = false
+      for (let j = 0; j < friendIds.length; j++) {
+        if (friendIds[j] === personId) {
+          alreadyFriend = true
+        }
+      }
+      if (alreadyFriend) {
+        continue
+      }
+
+      // Compare in lower case, so "lam" matches "Lam".
+      let personName = ''
+      if (typeof person.name === 'string') {
+        personName = person.name.toLowerCase()
+      }
+
+      let personEmail = ''
+      if (typeof person.email === 'string') {
+        personEmail = person.email.toLowerCase()
+      }
+
+      const nameMatches = personName.includes(searchText)
+      const emailMatches = personEmail.includes(searchText)
+
+      if (nameMatches || emailMatches) {
+        // A brand new object, so nothing private from the database user is sent.
+        const match = {
+          id: personId,
+          name: person.name,
+          email: person.email,
+        }
+        matches.push(match)
+      }
+    }
+
+    return res.json({ users: matches })
+  } catch (error) {
+    console.error('User search failed:', error)
+    return res.json({
+      message: 'Unable to search for users. Please try again.',
+      users: [],
+    })
+  }
+})
+
+
+
 router.post('/requests', handle(async (req, res) => {
   if (typeof req.body.email !== 'string' || !req.body.email.trim() || req.body.email.length > 254) {
     return res.status(400).json({ message: 'Enter your friend’s exact email address.' })
@@ -98,6 +212,55 @@ router.patch('/requests/:id', handle(async (req, res) => {
   if (!relationship) return res.status(404).json({ message: 'Friend request not found.' })
   res.json({ message: action === 'accept' ? 'Friend request accepted.' : 'Friend request rejected.' })
 }))
+
+// Cancel a friend request that I sent, while it is still waiting.
+router.delete('/requests/:id', async (req, res) => {
+  const requestId = req.params.id
+
+  // A database id is 24 characters, and each one is 0-9 or a-f.
+  // Checked one character at a time with includes().
+  let idIsValid = false
+  if (typeof requestId === 'string') {
+    if (requestId.length === 24) {
+      idIsValid = true
+      const allowedCharacters = '0123456789abcdefABCDEF'
+      for (let i = 0; i < requestId.length; i++) {
+        const character = requestId[i]
+        if (allowedCharacters.includes(character) === false) {
+          idIsValid = false
+        }
+      }
+    }
+  }
+
+  if (idIsValid === false) {
+    return res.json({ message: 'Friend request not found.' })
+  }
+
+  try {
+    // requestedBy has to be me, and the request has to still be pending.
+    // An accepted friendship is not deleted here.
+    const relationship = await Friendship.findOne({
+      _id: requestId,
+      members: req.socialUser._id,
+      requestedBy: req.socialUser._id,
+      status: 'pending',
+    })
+
+    if (!relationship) {
+      return res.json({ message: 'Friend request not found.' })
+    }
+
+    await relationship.deleteOne()
+
+    return res.json({ message: 'Friend request cancelled.' })
+  } catch (error) {
+    console.error('Cancel friend request failed:', error)
+    return res.json({ message: 'Unable to cancel the friend request. Please try again.' })
+  }
+})
+
+
 
 router.get('/invitations/:token', handle(async (req, res) => {
   if (!/^[a-f\d]{48}$/.test(req.params.token)) {

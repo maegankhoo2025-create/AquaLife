@@ -9,11 +9,17 @@ import { conditionReading, formatDate, game, getItem } from '../stores/game'
 import {
   social, loadSocial, loadInvitation, requestFriend, answerRequest, acceptInvitation,
   visitFriend, giftPearls, remindFriend, commentOnTank, canDeleteComment, deleteComment, markRead, invitationUrl, copyInvitation,
+  searchUsers, cancelFriendRequest,
 } from '../stores/social'
 
 const route = useRoute()
 const router = useRouter()
-const email = ref('')
+const searchText = ref('')
+const searchResults = ref([])
+const searchMessage = ref('Type at least 2 letters to search.')
+const busyUserId = ref('')
+// Goes up on every keystroke, so a slow old answer cannot overwrite a newer one.
+let searchNumber = 0
 const giftAmount = ref(10)
 const giftMessage = ref('')
 const comment = ref('')
@@ -31,8 +37,138 @@ const unreadCount = computed(() => social.inbox.filter((entry) => !entry.readAt)
 onMounted(loadSocial)
 watch(inviteToken, (token) => loadInvitation(token), { immediate: true })
 
-async function addFriend() {
-  if (await requestFriend(email.value)) email.value = ''
+// Accepting or cancelling from another card changes these counts.
+// Search again so this list matches.
+watch(
+  () => social.friends.length + social.incoming.length + social.outgoing.length,
+  () => {
+    onSearchInput()
+  },
+)
+
+// incoming means they asked me. sent means I already asked them.
+function requestStatus(person) {
+  for (let i = 0; i < social.incoming.length; i++) {
+    if (social.incoming[i].user.id === person.id) {
+      return 'incoming'
+    }
+  }
+
+  for (let i = 0; i < social.outgoing.length; i++) {
+    if (social.outgoing[i].user.id === person.id) {
+      return 'sent'
+    }
+  }
+
+  return 'none'
+}
+
+function searchButtonLabel(person) {
+  const status = requestStatus(person)
+  if (status === 'incoming') {
+    return 'Accept'
+  }
+  if (status === 'sent') {
+    return 'Request sent'
+  }
+  return 'Send request'
+}
+
+function searchButtonClass(person) {
+  const status = requestStatus(person)
+  if (status === 'sent') {
+    return 'btn-sent'
+  }
+  return 'btn-aqua'
+}
+
+// Runs on every change in the box. v-model has already stored the new text.
+async function onSearchInput() {
+  const typed = searchText.value.trim()
+
+  searchNumber = searchNumber + 1
+  const thisSearch = searchNumber
+
+  if (typed.length < 2) {
+    searchResults.value = []
+    searchMessage.value = 'Type at least 2 letters to search.'
+    return
+  }
+
+  try {
+    const data = await searchUsers(typed)
+
+    // The user kept typing, so throw this answer away.
+    if (thisSearch !== searchNumber) {
+      return
+    }
+
+    if (Array.isArray(data.users)) {
+      searchResults.value = data.users
+    } else {
+      searchResults.value = []
+    }
+
+    if (searchResults.value.length === 0) {
+      if (data.message) {
+        searchMessage.value = data.message
+      } else {
+        searchMessage.value = 'No users found.'
+      }
+    } else {
+      searchMessage.value = ''
+    }
+  } catch (error) {
+    console.error('User search failed:', error)
+    if (thisSearch !== searchNumber) {
+      return
+    }
+    searchResults.value = []
+    searchMessage.value = 'Unable to search for users. Please try again.'
+  }
+}
+
+// Send, cancel, or accept. The button stays disabled until the server answers.
+async function onSearchButton(person) {
+  if (busyUserId.value !== '') {
+    return
+  }
+  if (social.busy) {
+    return
+  }
+
+  busyUserId.value = person.id
+
+  try {
+    const status = requestStatus(person)
+
+    if (status === 'incoming') {
+      let requestId = ''
+      for (let i = 0; i < social.incoming.length; i++) {
+        if (social.incoming[i].user.id === person.id) {
+          requestId = social.incoming[i].id
+        }
+      }
+      await answerRequest(requestId, 'accept')
+    } else if (status === 'sent') {
+      let requestId = ''
+      for (let i = 0; i < social.outgoing.length; i++) {
+        if (social.outgoing[i].user.id === person.id) {
+          requestId = social.outgoing[i].id
+        }
+      }
+      await cancelFriendRequest(requestId)
+    } else {
+      await requestFriend(person.email)
+    }
+
+    busyUserId.value = ''
+    await onSearchInput()
+  } catch (error) {
+    console.error('Friend request button failed:', error)
+    busyUserId.value = ''
+    await onSearchInput()
+  }
 }
 
 async function acceptLink() {
@@ -88,12 +224,35 @@ async function sendComment() {
       <div class="col-12 col-lg-6">
         <section class="al-card h-100" aria-labelledby="add-friend-heading">
           <h2 id="add-friend-heading" class="h5"><AppIcon name="user" /> Add a friend</h2>
-          <p class="small text-muted-al">Use their exact account email. You can visit and interact once they accept.</p>
-          <form class="d-flex flex-wrap gap-2" @submit.prevent="addFriend">
-            <label class="w-100" for="friend-email">Friend’s email</label>
-            <input id="friend-email" v-model="email" type="email" class="form-control friend-email" maxlength="254" required autocomplete="off" />
-            <button type="submit" class="btn btn-aqua" :disabled="social.busy">Send request</button>
-          </form>
+          <p class="small text-muted-al">Find someone by their name or email. You can visit and interact once they accept.</p>
+          <label class="mb-1" for="friend-search">Search by name or email</label>
+          <input
+            id="friend-search"
+            v-model="searchText"
+            type="text"
+            class="form-control"
+            maxlength="254"
+            autocomplete="off"
+            @input="onSearchInput"
+          />
+          <p v-if="searchResults.length === 0" class="small text-muted-al mt-2 mb-0" role="status">{{ searchMessage }}</p>
+          <ul v-else class="al-list search-results mt-2 mb-0" aria-label="Matching users">
+            <li v-for="person in searchResults" :key="person.id">
+              <div class="al-grow">
+                <div class="search-name">{{ person.name }}</div>
+                <div class="search-email">{{ person.email }}</div>
+              </div>
+              <button
+                type="button"
+                class="btn"
+                :class="searchButtonClass(person)"
+                :disabled="social.busy || busyUserId === person.id"
+                @click="onSearchButton(person)"
+              >
+                {{ searchButtonLabel(person) }}
+              </button>
+            </li>
+          </ul>
         </section>
       </div>
       <div class="col-12 col-lg-6">
@@ -249,7 +408,38 @@ async function sendComment() {
 </template>
 
 <style scoped>
-.friend-email { flex: 1 1 220px; width: auto; }
+.search-name {
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.search-email {
+  color: var(--al-muted);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.search-results .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Request sent: a lighter, whiter blue than the aqua Send request button. */
+.btn-sent {
+  --bs-btn-bg: #d4f6f8;
+  --bs-btn-color: #0a1628;
+  --bs-btn-border-color: #d4f6f8;
+  --bs-btn-hover-bg: #eefcfd;
+  --bs-btn-hover-color: #0a1628;
+  --bs-btn-hover-border-color: #eefcfd;
+  --bs-btn-active-bg: #eefcfd;
+  --bs-btn-active-color: #0a1628;
+  --bs-btn-active-border-color: #eefcfd;
+  --bs-btn-disabled-bg: var(--al-surface-3);
+  --bs-btn-disabled-color: var(--al-muted);
+  --bs-btn-disabled-border-color: var(--al-surface-3);
+}
 .gift-amount { max-width: 200px; }
 .gift-panel { border-top: 1px solid var(--al-border); padding-top: 1.25rem; }
 .comment-list, .inbox-list { list-style: none; padding: 0; margin: 0; }

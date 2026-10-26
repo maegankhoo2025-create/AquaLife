@@ -86,6 +86,23 @@ export function requestFriend(email) {
   return change(() => LoginApi.post('/api/friends/requests', { email }))
 }
 
+// Ask the server for matching users. This does not use change(), because
+// typing in the search box should not reload the whole page or pop up a toast.
+export async function searchUsers(text) {
+  const response = await LoginApi.get('/api/friends/search', {
+    params: {
+      q: text,
+    },
+  })
+  return response.data
+}
+
+// Cancel a request I sent. change() reloads the friends lists,
+// so the Sent requests card updates to match.
+export function cancelFriendRequest(id) {
+  return change(() => LoginApi.delete(`/api/friends/requests/${id}`))
+}
+
 export function answerRequest(id, action) {
   return change(() => LoginApi.patch(`/api/friends/requests/${id}`, { action }))
 }
