@@ -92,7 +92,15 @@ function answerClass(answerIndex) {
 
 <template>
   <main class="container al-page quiz-play">
-    <p v-if="loading" class="text-muted-al" role="status">Loading today's quiz…</p>
+    <div v-if="loading" class="quiz-loading" role="status">
+      <div class="quiz-loading__fish" aria-hidden="true">
+        <span class="quiz-loading__bubble"></span>
+        <span class="quiz-loading__bubble"></span>
+        <span class="quiz-loading__bubble"></span>
+        <AppIcon name="fish" :size="72" />
+      </div>
+      <p class="fw-bold mb-0">Fish is fetching the questions…</p>
+    </div>
 
     <p v-else-if="questions.length === 0" class="text-muted-al" role="status">
       The quiz could not be loaded. <RouterLink :to="{ name: 'quiz' }">Back to quiz hub</RouterLink>
@@ -191,6 +199,72 @@ function answerClass(answerIndex) {
 </template>
 
 <style scoped>
+/* Loading screen: the fish swims on the spot while bubbles rise from its mouth. */
+.quiz-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem 0;
+  color: var(--al-text);
+}
+
+.quiz-loading__fish {
+  position: relative;
+  color: var(--al-aqua);
+  animation: fish-swim 1.6s ease-in-out infinite;
+}
+
+.quiz-loading__bubble {
+  position: absolute;
+  top: 30%;
+  right: -6px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--al-aqua);
+  border-radius: 50%;
+  opacity: 0;
+  animation: bubble-rise 1.8s ease-out infinite;
+}
+
+.quiz-loading__bubble:nth-child(2) {
+  animation-delay: 0.6s;
+}
+
+.quiz-loading__bubble:nth-child(3) {
+  animation-delay: 1.2s;
+}
+
+@keyframes fish-swim {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(-4deg);
+  }
+  25% {
+    transform: translate(4px, -6px) rotate(2deg);
+  }
+  50% {
+    transform: translate(0, -2px) rotate(4deg);
+  }
+  75% {
+    transform: translate(-4px, -6px) rotate(-2deg);
+  }
+}
+
+@keyframes bubble-rise {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.5);
+  }
+  20% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(10px, -48px) scale(1.1);
+  }
+}
+
 .streak-line {
   display: inline-flex;
   align-items: center;
