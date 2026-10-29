@@ -6,7 +6,7 @@ const Tank = require('../models/Tank-model')
 const User = require('../models/User-model')
 const { getSpecies } = require('../data/species')
 const Product = require('../models/Product-model')
-const { checkCompatibility } = require('../logic/compatibility')
+const { checkCompatibility, idealConditions, isFreshTank, resetTank } = require('../logic/compatibility')
 const Transaction = require('../models/Transaction-model')
 const { purchase } = require('../logic/shop')
 const { simulateTank, loadOwnedTank } = require('../logic/simulation')
@@ -106,10 +106,8 @@ router.post('/', async (req, res) => {
   if (req.body.forItemId !== undefined) {
     const species = getSpecies(req.body.forItemId)
     if (!species) return res.status(400).json({ message: 'Unknown fish species.' })
-    const temperature = Math.round((species.temp[0] + species.temp[1]) / 2)
-    const ph = Math.round(((species.ph[0] + species.ph[1]) / 2) * 10) / 10
-    newTank.conditions = { temperature, ph, waterQuality: 100 }
-    newTank.targets = { temperature, ph, waterQuality: 100 }
+    newTank.conditions = idealConditions(species)
+    newTank.targets = idealConditions(species)
   }
 
   try {
@@ -284,6 +282,8 @@ router.delete('/:id/fish/:fishId', async (req, res) => {
       const refund = fish.health > 0 && item ? item.price : 0
 
       fish.deleteOne()
+      // Nothing left alive and nothing changing the water: start again like a new tank.
+      if (isFreshTank(tank)) resetTank(tank)
       await tank.save({ session })
       let pearls = user.pearls
       if (refund > 0) {
@@ -327,6 +327,7 @@ router.delete('/:id/decorations/:decorationId', async (req, res) => {
       const name = item ? item.name : 'Decoration'
 
       decoration.deleteOne()
+      if (isFreshTank(tank)) resetTank(tank)
       await tank.save({ session })
       let pearls = user.pearls
       if (refund > 0) {

@@ -5,7 +5,7 @@ const User = require('../models/User-model')
 const Tank = require('../models/Tank-model')
 const Transaction = require('../models/Transaction-model')
 const { getSpecies } = require('../data/species')
-const { checkCompatibility } = require('./compatibility')
+const { checkCompatibility, idealConditions, isFreshTank } = require('./compatibility')
 const { simulateTank } = require('./simulation')
 
 const DECOR_FLOOR_Y = 85 // new decorations start on the tank floor (same as game.js)
@@ -60,6 +60,13 @@ async function purchase({ user, tank, item, quantity = 1, force = false, nicknam
     )
     if (!paidUser) {
       return { status: 400, body: { message: `Not enough pearls. You need ${cost - freshUser.pearls} more.` } }
+    }
+
+    // The first fish in a fresh tank: set the water and goals up to suit it.
+    if (item.category === 'fish' && isFreshTank(freshTank)) {
+      const ideal = idealConditions(getSpecies(item.id))
+      freshTank.conditions = ideal
+      freshTank.targets = { ...ideal }
     }
 
     for (let i = 0; i < quantity; i++) {

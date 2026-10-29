@@ -7,6 +7,7 @@ import {
   createTank,
   currentTank,
   game,
+  isFreshTank,
   loadSpeciesInfo,
   getItems,
   LOW_PEARLS,
@@ -126,6 +127,11 @@ async function buy(item, tankId, quantity, force = false, confirmedLowBalance = 
         </select>
       </div>
     </div>
+
+    <!-- An empty tank (no living fish, no water items) is set up for the first fish bought -->
+    <p v-if="isFreshTank(tank)" class="al-chip al-chip--aqua fresh-note mb-3">
+      {{ tank.name }} is empty, so any fish fits. Its water will be set up for the first fish you add.
+    </p>
 
     <div class="shop-layout">
       <!--
@@ -263,6 +269,10 @@ async function buy(item, tankId, quantity, force = false, confirmedLowBalance = 
 </template>
 
 <style scoped>
+.fresh-note {
+  white-space: normal; /* chips normally stay on one line; this sentence may wrap */
+}
+
 .shop-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

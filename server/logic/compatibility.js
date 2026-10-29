@@ -2,6 +2,8 @@
 // Server copy of checkCompatibility / safeRange in client/src/stores/game.js.
 
 const { getSpecies } = require('../data/species')
+const { getItem } = require('../data/items')
+const { CARE_RULES } = require('../data/equipment')
 
 // Same limits as the condition bars in server/models/Tank-model.js.
 const CONDITION_LIMITS = {
@@ -37,6 +39,38 @@ function safeRange(tank) {
   }
 }
 
+// Readings a brand-new tank starts with (same as the defaults in models/Tank-model.js).
+const DEFAULT_CONDITIONS = { temperature: 25, ph: 7, waterQuality: 100 }
+
+// Equipment, pH materials and plants change the water; other decorations do not.
+function changesWater(itemId) {
+  return Boolean(CARE_RULES[itemId]) || getItem(itemId)?.category === 'plant'
+}
+
+// A "fresh" tank has no living fish and nothing that changes the water.
+// Its water can still be set up for any fish, so temperature and pH never conflict.
+function isFreshTank(tank) {
+  const hasLivingFish = tank.fish.some((fish) => fish.health > 0)
+  const hasWaterItems = tank.decorations.some((decoration) => changesWater(decoration.itemId))
+  return !hasLivingFish && !hasWaterItems
+}
+
+// Readings in the middle of a species' safe range, used to set up a fresh tank for it.
+function idealConditions(species) {
+  return {
+    temperature: Math.round((species.temp[0] + species.temp[1]) / 2),
+    ph: Math.round(((species.ph[0] + species.ph[1]) / 2) * 10) / 10,
+    waterQuality: 100,
+  }
+}
+
+// Puts a tank's readings and goals back to a new tank's defaults.
+function resetTank(tank) {
+  tank.conditions = { ...DEFAULT_CONDITIONS }
+  tank.targets = { ...DEFAULT_CONDITIONS }
+  tank.set('maintenance.waterChange', undefined)
+}
+
 // Would this species be happy in this tank?
 // Returns { ok, reasons } where reasons is a list of sentences explaining each problem.
 function checkCompatibility(species, tank, quantity = 1) {
@@ -50,14 +84,16 @@ function checkCompatibility(species, tank, quantity = 1) {
   }
 
   const { temperature, ph } = tank.conditions
+  // A fresh tank is set up for the first fish added, so only check readings otherwise.
+  const checkWater = !isFreshTank(tank)
 
-  if (temperature < species.temp[0] || temperature > species.temp[1]) {
+  if (checkWater && (temperature < species.temp[0] || temperature > species.temp[1])) {
     reasons.push(
       `${tank.name} is ${Number(temperature.toFixed(1))}°C, but ${species.name} needs ${species.temp[0]}–${species.temp[1]}°C.`
     )
   }
 
-  if (ph < species.ph[0] || ph > species.ph[1]) {
+  if (checkWater && (ph < species.ph[0] || ph > species.ph[1])) {
     reasons.push(
       `${tank.name} has pH ${Number(ph.toFixed(2))}, but ${species.name} needs pH ${species.ph[0]}–${species.ph[1]}.`
     )
@@ -138,4 +174,4 @@ function checkCompatibility(species, tank, quantity = 1) {
   return { ok: reasons.length === 0, reasons }
 }
 
-module.exports = { checkCompatibility, safeRange, tankSpecies }
+module.exports = { checkCompatibility, safeRange, tankSpecies, isFreshTank, idealConditions, resetTank }

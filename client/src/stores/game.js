@@ -533,6 +533,15 @@ export function healthLabel(health) {
 // reasons is a list of sentences explaining each problem.
 // The server runs the same check when a fish is bought; this copy lets the shop
 // filter and warn instantly without asking the server about every item.
+// A "fresh" tank has no living fish and no item that changes the water
+// (equipment, pH materials or plants). Same rule as isFreshTank in server/logic/compatibility.js.
+// Its water is set up for the first fish added, so temperature and pH never conflict.
+export function isFreshTank(tank) {
+  const hasLivingFish = tank.fish.some((fish) => fish.health > 0)
+  const hasWaterItems = tank.decorations.some((decoration) => Boolean(getItem(decoration.itemId)?.effect?.condition))
+  return !hasLivingFish && !hasWaterItems
+}
+
 export function checkCompatibility(item, tank, quantity = 1) {
   const reasons = []
 
@@ -546,14 +555,15 @@ export function checkCompatibility(item, tank, quantity = 1) {
   if (item.category !== 'fish') return { ok: true, reasons }
 
   const { temperature, ph } = tank.conditions
+  const checkWater = !isFreshTank(tank)
 
-  if (temperature < item.temp[0] || temperature > item.temp[1]) {
+  if (checkWater && (temperature < item.temp[0] || temperature > item.temp[1])) {
     reasons.push(
       `${tank.name} is ${conditionReading(temperature, 'temperature')}°C, but ${item.name} needs ${item.temp[0]}–${item.temp[1]}°C.`
     )
   }
 
-  if (ph < item.ph[0] || ph > item.ph[1]) {
+  if (checkWater && (ph < item.ph[0] || ph > item.ph[1])) {
     reasons.push(
       `${tank.name} has pH ${conditionReading(ph, 'ph')}, but ${item.name} needs pH ${item.ph[0]}–${item.ph[1]}.`
     )
