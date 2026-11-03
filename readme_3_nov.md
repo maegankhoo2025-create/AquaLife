@@ -77,6 +77,7 @@ cd ..
 1. Go to [mongodb.com/atlas](https://www.mongodb.com/atlas) and sign in (or create a free account).
 2. Create a free cluster and a database user. Save the username and password.
 3. Under **Network Access**, allow your current IP address. The server cannot connect until Atlas allows that address.
+To allow other users to access the same database, on the left sidebar, go to security> Database and Network Access> IP Access List and add IP address 0.0.0.0/0
 4. Choose **Connect** and copy the SRV connection string. You will paste it into `.env` in the next step. Put the database name in the path, for example `aqualife`.
 
 A local replica set works the same way if you already run one. Point `MONGODB_URI` at that set.
@@ -185,55 +186,39 @@ pnpm exec playwright install
 
 Use `pnpm exec`, not `npx`. `npx` can download a different Playwright build, and the tests then cannot find the browser.
 
-### Create a testing account
-
-Before the planned suite can run, sign up in the app with a fake account, for example:
-
-- Email: `user1@example.com`
-- Password: `abc12`
-
-Friends tests need a second account, for example `user2@example.com` with the same password rule.
 
 ### Run the tests
 
-Playwright's config ([`client/playwright.config.js`](client/playwright.config.js)) starts the Vite dev server when port 5173 is free. It does **not** start the backend. Start Terminal 1 from [step 6](#6-run-the-app) first, with the shop seeded and `server/.env` in place.
+If you intend to do E2E testing now,
+Ctrl C any server or client that is currently running.
 
+The E2E testing will be using a separate section in the same cluster.
+In the .env file in the server folder, using the same mongodb link that you have created for Aqualife, add this to the end of the link, replace "yourname" with your name with no spacing:
+MONGODB_URI=mongodb+srv://<user>:<password>@aqualife-database.j0gzc14.mongodb.net/aqualife_test_yourname
+
+now in command line in vs code, from the AquaLife folder, run
 ```bash
-cd client
-pnpm test:e2e --project=chromium
-pnpm test:unit -- --run
+cd server
+node seed-products.js
 ```
 
-`pnpm test:e2e` without `--project` also runs Firefox and WebKit. Locally the browser window is visible. An HTML report opens at the end; open the last one again with `pnpm exec playwright show-report`.
-
-Until the planned files replace the starter tests, expect a failure like this:
-
-```text
-Error: expect(locator).toHaveText(expected) failed
-Expected: "You did it!"
-Received: "Log in"
+then run
+```bash
+cd ../client 
+npx playwright test --project=chromium --ui
 ```
 
-### Planned suite
+now there will be a Playwright pop up page, run all tests by clicking the green triangle play button at the top along the tests row.
 
-Each row is a test we intend to write. You can follow the same steps by hand at [http://localhost:5173](http://localhost:5173) today. Use a fresh account unless the row says otherwise.
+after testing, to make sure all E2E test accounts created during the testing are deleted,
+in the same terminal
+press ctrl+C
+```bash
+cd ../server
+node delete-e2e-users.js
+```
 
-| Planned file | Journey | Steps | Expected result |
-| --- | --- | --- | --- |
-| `e2e/auth.spec.js` | Sign up | **Don't have an account? Sign up**, then a name, a new email, and password `abc12`. | Dashboard opens. Balance shows 500 pearls. |
-| `e2e/auth.spec.js` | Reject a weak password | Sign up with password `abcde`. | Message asks for at least 5 characters with at least 1 letter and 1 number. No account is created. |
-| `e2e/auth.spec.js` | Log in and log out | Log out, log in with the account above, then try a wrong password. | The right password opens Dashboard. The wrong one shows "Email or password is incorrect." |
-| `e2e/auth.spec.js` | Login guard | While logged out, open `http://localhost:5173/main-tank`. | The app sends you to `/login`. |
-| `e2e/tank.spec.js` | Create a tank | **My Tank** → **New tank** → a name → **Create and select tank**. | The new empty tank is selected. **Tank 1** is still there. |
-| `e2e/shop.spec.js` | Buy a fish | **Shop**, choose a peaceful fish such as Neon Tetra, **Add to [tank]**. | The fish appears in My Tank. The balance drops by the shop price. **History** shows the purchase. |
-| `e2e/shop.spec.js` | Block a purchase you cannot afford | Try to buy something that costs more than your balance. | The purchase stops with a not-enough-pearls message. The balance stays the same. |
-| `e2e/shop.spec.js` | Compatibility | In a tank of peaceful fish, add an aggressive fish, or a fish whose temperature or pH range misses the tank. | A conflict dialog lists the reasons and still offers **Add anyway**. |
-| `e2e/care.spec.js` | Daily care reward | With a living fish, **Feed fish**, then feed again. | The first feed pays 20 pearls and 20 XP and writes a History entry. The second feed still feeds the fish and pays nothing more. |
-| `e2e/quiz.spec.js` | Daily quiz | **Quiz** → **Start quiz** → answer all 5 → **See results**. | 10 pearls and 15 XP for each correct answer. History records the reward. |
-| `e2e/quiz.spec.js` | Practice round | Finish the quiz again the same day. | Feedback is shown. Pearls, XP, and the streak stay as they were. |
-| `e2e/profile.spec.js` | Profile | **Profile** → change the name → **Save profile**. | The header shows the new name. |
-| `e2e/species.spec.js` | Species data | Open a fish in the Shop. | Scientific name, family, temperature and pH range, and a photo with credit when the photo API returns one. |
-| `e2e/friends.spec.js` | Visit and gift | From a second account, send a friend request by email, accept it, **Visit tanks**, and send pearls. | The visit is read-only. The gift moves pearls and shows up in both histories. |
+
 
 ## Project structure
 
@@ -267,21 +252,6 @@ AquaLife/
 
 **Solution.** AquaLife is a tank you can stock, neglect, and correct without harming a real animal. You buy fish, plants, and equipment with pearls, set water goals, and watch health, hunger, and growth respond over time. The shop checks temperament, temperature, and pH before a fish goes in. Species names, families, photos, and care ranges come from public sources. Daily care tasks and a five-question quiz, built from that same species data, pay pearls and XP.
 
-## Features
-
-1. **Accounts and sessions.** Sign up, log in, and log out. Passwords are hashed with bcrypt. Sessions are stored in MongoDB. Every page except Login asks the server for a session first.
-2. **Tanks.** The first visit creates **Tank 1**. You can add, name, switch, and delete further tanks. Swipe, or use **Previous tank** / **Next tank**.
-3. **Fish care over time.** Each fish has health, hunger, and size. Hunger rises over time. Poor water, the wrong temperature or pH, or hunger can lower health. Healthy, fed fish grow. When you come back, the server catches up elapsed care, up to the latest seven days.
-4. **Water conditions and goals.** Temperature, pH, and water quality are readings, shown as bars. You save goals, then move the water with a heater, cooling fan, filter, driftwood, almond leaves, crushed coral, plants, or a partial water change. A forecast says whether the current setup can reach the goal.
-5. **Compatibility.** Before a fish is added, its temperature range, pH range, and temperament are checked against the tank and the fish already living there. A conflict lists the reasons. You can send the fish to another of your tanks that fits, or add it anyway.
-6. **Shop and inventory.** Fish, plants, decorations, and equipment are bought with pearls and placed in the tank you are shopping for. Fish can be nicknamed and given private care notes. Items can be dragged. Removing a living fish or an installed item refunds the current shop price.
-7. **Pearls, XP, and badges.** New accounts start with 500 pearls. A level is 200 XP. Four badges (Fish Keeper, Quiz Streak, Fish Scholar, Social Fish) each rise through Bronze, Silver, Gold, Platinum, and Diamond.
-8. **Daily quiz.** Five multiple-choice questions a day, from species data: temperature, pH, taxonomy, and photo identification. The first finished quiz of the day pays 10 pearls and 15 XP per correct answer. Streak bonuses, in extra pearls, fall on days 3 (15), 5 (25), 7 (40), 10 (60), 14 (80), 21 (120), and 30 (200). A later attempt the same day is practice and pays nothing.
-9. **Daily care rewards.** For each tank that still has a living fish, once per Singapore calendar day: **Feed fish** (20 pearls and 20 XP), **Clean tank** (30 and 30), **Check temperature** (15 and 15), and **Check pH** (15 and 15). Doing the task again the same day still performs the care and pays nothing more.
-10. **Species pages.** Shop details show the scientific name, family, common name, a credited photo when one is available, and the temperature and pH range.
-11. **Dashboard, history, and profile.** Dashboard shows pearls, level, today's tasks, recent activity, and a rolling 14-day "responsible fish care" score. History lists purchases, rewards, refunds, and gifts. Profile edits your name, email, and picture, and shows badges and tanks.
-12. **Friends.** Send a request by email or share an invite link. After it is accepted you can visit a friend's tanks read-only, send pearls, leave a comment, send a feeding reminder, and read your inbox.
-
 ## Using the app
 
 1. **Login (`/login`).** Log in, or switch to sign up. A new account gets 500 pearls. The first load of the app creates an empty **Tank 1**.
@@ -298,7 +268,7 @@ The layout uses the Bootstrap 5 grid, so cards stack on a phone and sit side by 
 
 ## External APIs
 
-The server calls these from [`server/routes/species-routes.js`](server/routes/species-routes.js). None of them needs an API key. Each request gives up after 10 seconds.
+The server calls these from [`server/routes/species-routes.js`](server/routes/species-routes.js). 
 
 | API | Endpoint | What it provides | Where it shows up |
 | --- | --- | --- | --- |
@@ -311,7 +281,7 @@ The server calls these from [`server/routes/species-routes.js`](server/routes/sp
 - Quiz questions are cached in memory for 24 hours, so a running server process calls these APIs for the quiz at most once a day.
 - The shop catalogue itself is stored in MongoDB. `GET /api/products` reuses that catalogue for 60 seconds per server process.
 
-The marking team may exercise each feature several times a day. These three APIs are the public ones the app depends on, and the quiz cache keeps repeat visits off the network.
+Each feature can be accessed several times a day. These three APIs are the public ones the app depends on, and the quiz cache keeps repeat visits off the network.
 
 ## Data stores
 
@@ -326,15 +296,8 @@ The marking team may exercise each feature several times a day. These three APIs
 | MongoDB `sessions` | Login sessions, including the unfinished quiz attempt |
 | Browser `localStorage` | Display preferences, such as reduced motion, and which tank is selected |
 
-Purchases, refunds, rewards, and gifts run inside a MongoDB transaction. That is why the database has to be Atlas or a replica set.
+Purchases, refunds, rewards, and gifts run inside a MongoDB transaction.
 
-## Concepts to look at
-
-- **One client module owns the server data** ([`client/src/stores/game.js`](client/src/stores/game.js), [`client/src/stores/social.js`](client/src/stores/social.js)). Pages call functions such as `loadGame()` rather than building their own requests. `game.js` also creates **Tank 1** the first time an account has no tanks, and it ignores an older tank response that arrives after a newer save.
-- **A route guard for logged-out visits** ([`client/src/router/index.js`](client/src/router/index.js)). `router.beforeEach` asks `GET /auth/session` before any page marked `requiresAuth`. A logged-out visit goes to `/login`. An invite link keeps its `invite` query so the person can accept it after they sign in.
-- **The server decides money and compatibility** ([`server/logic/shop.js`](server/logic/shop.js), [`server/logic/compatibility.js`](server/logic/compatibility.js), [`server/routes/quiz-routes.js`](server/routes/quiz-routes.js)). The browser can ask to buy, feed, or submit a quiz. The pearl balance, the conflict check, and the quiz score are worked out on the server, inside a transaction where money moves.
-- **Care is caught up on request** ([`server/logic/simulation.js`](server/logic/simulation.js)). There is no background clock. Opening a tank, or changing it, advances hunger, health, and water from the last saved time, and then writes the new readings back.
-- **Live species data with a stored fallback** ([`server/routes/species-routes.js`](server/routes/species-routes.js)). GBIF, iNaturalist, and Aquarist Atlas are combined per scientific name. A missing care range falls back to the FishBase figures shipped in the repo, so the shop and the quiz still have numbers when an API is down.
 
 ## Team
 
@@ -362,7 +325,7 @@ Each member should replace their row before submission. State the tool, and the 
 | Jaimin Ong Weixuan | <!-- fill in, or "none" --> | <!-- fill in --> |
 | Kaavya Manikandan | <!-- fill in, or "none" --> | <!-- fill in --> |
 
-This README was drafted with AI assistance from the repository and the IS216 project brief, for the team to check and complete.
+
 
 ## Ethical use
 
