@@ -242,7 +242,20 @@ async function sendComment() {
                 <div class="search-name">{{ person.name }}</div>
                 <div class="search-email">{{ person.email }}</div>
               </div>
+              <!-- A sent request shows a status label with its own Unsend button beside it. -->
+              <div v-if="requestStatus(person) === 'sent'" class="d-flex flex-wrap justify-content-end gap-2">
+                <span class="btn btn-sent sent-label">Request sent</span>
+                <button
+                  type="button"
+                  class="btn btn-ghost"
+                  :disabled="social.busy || busyUserId === person.id"
+                  @click="onSearchButton(person)"
+                >
+                  Unsend request
+                </button>
+              </div>
               <button
+                v-else
                 type="button"
                 class="btn"
                 :class="searchButtonClass(person)"
@@ -439,6 +452,11 @@ async function sendComment() {
   --bs-btn-disabled-bg: var(--al-surface-3);
   --bs-btn-disabled-color: var(--al-muted);
   --bs-btn-disabled-border-color: var(--al-surface-3);
+}
+/* Status only; the Unsend request button beside it does the cancelling. */
+.sent-label {
+  pointer-events: none;
+  cursor: default;
 }
 .gift-amount { max-width: 200px; }
 .gift-panel { border-top: 1px solid var(--al-border); padding-top: 1.25rem; }
