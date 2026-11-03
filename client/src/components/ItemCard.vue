@@ -1,20 +1,19 @@
 <script setup>
-// Click or tap an illustration to open the item's details.
 import { computed } from 'vue'
 import { checkCompatibility } from '../stores/game'
 import PearlCount from './PearlCount.vue'
 import ItemVisual from './ItemVisual.vue'
-import FishGallery from './FishGallery.vue'
 
 const props = defineProps({
   item: { type: Object, required: true },
-  tank: { type: Object, required: true }, // the tank the user is shopping for
+  tank: { type: Object, required: true },
 })
+
 const emit = defineEmits(['open'])
 
-const compatibility = computed(() => checkCompatibility(props.item, props.tank))
-
-
+const compatibility = computed(() =>
+  checkCompatibility(props.item, props.tank)
+)
 </script>
 
 <template>
@@ -22,50 +21,78 @@ const compatibility = computed(() => checkCompatibility(props.item, props.tank))
     class="al-card item-card h-100"
     :class="{ 'item-card--conflict': !compatibility.ok }"
   >
-   <div class="al-ph item-card__photo">
-  <FishGallery v-if="item.category === 'fish'" :item="item" />
-  <ItemVisual v-else :item="item" />
-</div>
+    <button
+      class="item-card__main"
+      type="button"
+      aria-haspopup="dialog"
+      @click="emit('open', item)"
+    >
+      <span class="al-ph item-card__photo">
+        <ItemVisual :item="item" />
+      </span>
 
-<button class="item-card__main" type="button" aria-haspopup="dialog" @click="emit('open', item)">
+      <span class="d-block fw-bold mt-2">
+        {{ item.name }}
+      </span>
 
-      <span class="d-block fw-bold mt-2">{{ item.name }}</span>
-      <span v-if="item.sci" class="d-block small fst-italic text-muted-al">{{ item.sci }}</span>
-      <span v-if="item.effect" class="d-block small item-card__effect mt-2" :title="item.effect.detail">
+      <span
+        v-if="item.sci"
+        class="d-block small fst-italic text-muted-al"
+      >
+        {{ item.sci }}
+      </span>
+
+      <span
+        v-if="item.effect"
+        class="d-block small item-card__effect mt-2"
+        :title="item.effect.detail"
+      >
         {{ item.effect.summary }}
       </span>
 
       <span class="d-flex flex-wrap align-items-center gap-2 mt-2">
         <PearlCount :amount="item.price" />
-        <span v-if="!compatibility.ok" class="al-chip al-chip--bad">Conflict</span>
+        <span v-if="!compatibility.ok" class="al-chip al-chip--bad">
+          Conflict
+        </span>
       </span>
     </button>
-
   </article>
 </template>
 
 <style scoped>
 .item-card {
-  padding: 0.75rem;
+  display: flex;
+  padding: 0;
 }
 
 .item-card--conflict {
   border-color: var(--al-bad);
 }
 
-/* The clickable part is a real <button> so it works with the keyboard too */
 .item-card__main {
   display: block;
+  flex: 1;
   width: 100%;
-  padding: 0;
+  padding: 0.75rem;
   border: 0;
   background: none;
   color: inherit;
+  font: inherit;
   text-align: left;
-  border-radius: var(--al-radius-sm);
+  border-radius: inherit;
+  cursor: pointer;
+}
+
+.item-card__main:focus-visible {
+  outline: 2px solid var(--al-aqua);
+  outline-offset: 2px;
 }
 
 .item-card__photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   aspect-ratio: 4 / 3;
   width: 100%;
 }
@@ -83,5 +110,4 @@ const compatibility = computed(() => checkCompatibility(props.item, props.tank))
   font-weight: 400;
   line-height: 1.4;
 }
-
 </style>
