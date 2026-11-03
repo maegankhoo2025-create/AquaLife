@@ -5,6 +5,7 @@ import {
   CONDITION_LIMITS,
   createTank,
   currentTank,
+  deleteTank,
   doTask,
   game,
   getItem,
@@ -50,6 +51,7 @@ watch(() => tank.value.id, (id) => {
   goalError.value = ''
   fishToRemove.value = null
   decorToRemove.value = null
+  showDeleteTank.value = false
 })
 
 async function submitGoals() {
@@ -193,6 +195,23 @@ async function confirmRemoveDecoration() {
   if (decorToRemove.value === target) decorToRemove.value = null
 }
 
+// The first tank always stays, and a tank with living fish must be emptied first.
+const canDeleteTank = computed(() => tank.value.id !== game.tanks[0]?.id && !hasLivingFish.value)
+const deleteRefund = computed(() => decorList.value.reduce((total, decor) => total + (decor.refund ?? 0), 0))
+const showDeleteTank = ref(false)
+const deletingTank = ref(false)
+
+async function confirmDeleteTank() {
+  if (deletingTank.value) return
+  deletingTank.value = true
+  const result = await deleteTank(tank.value.id)
+  deletingTank.value = false
+  showDeleteTank.value = false
+  if (!result.ok) notify(result.message, true)
+  else if (result.refund > 0) notify(`${result.message} +${result.refund} pearls refunded`)
+  else notify(result.message)
+}
+
 // Dead fish remain in the tank until removed.
 const deadCount = computed(() => tank.value.fish.filter((fish) => fish.health <= 0).length)
 
@@ -210,6 +229,9 @@ async function clearDeadFish() {
       <h1 class="al-title">My aquarium</h1>
       <div class="d-flex gap-2 flex-wrap">
         <button class="btn btn-ghost" type="button" @click="openCreateTank"><AppIcon name="plus" /> New tank</button>
+        <button v-if="canDeleteTank" class="btn btn-ghost" type="button" @click="showDeleteTank = true">
+          <AppIcon name="x" /> Delete tank
+        </button>
         <RouterLink class="btn btn-aqua" :to="{ name: 'browse' }">
           <AppIcon name="plus" /> Shop
         </RouterLink>
@@ -344,6 +366,21 @@ async function clearDeadFish() {
           {{ creatingTank ? 'Creating…' : 'Create and select tank' }}
         </button>
       </form>
+    </AlModal>
+
+    <AlModal :open="showDeleteTank" title="Delete this tank?" @close="showDeleteTank = false">
+      <p><strong>{{ tank.name }}</strong> will be deleted for good.</p>
+      <p v-if="deleteRefund > 0">
+        Its {{ decorList.length }} installed {{ decorList.length === 1 ? 'item is' : 'items are' }} refunded:
+        you will get <strong>{{ deleteRefund }} pearls</strong> back.
+      </p>
+      <p v-if="deadCount > 0" class="text-muted-al">Dead fish are removed with no refund.</p>
+      <div class="d-grid gap-2">
+        <button class="btn btn-aqua" type="button" :disabled="deletingTank" @click="confirmDeleteTank">
+          {{ deletingTank ? 'Deleting…' : 'Delete tank' }}
+        </button>
+        <button class="btn btn-ghost" type="button" @click="showDeleteTank = false">Cancel</button>
+      </div>
     </AlModal>
 
     <!-- Ask before removing: the fish is deleted from the database -->

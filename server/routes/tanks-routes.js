@@ -352,13 +352,51 @@ router.delete('/:id/decorations/:decorationId', async (req, res) => {
 })
 
 // DELETE /api/tanks/:id -> delete a tank
+// Every account keeps its first (oldest) tank, and a tank with living fish cannot be
+// deleted. Installed plants, equipment and decorations are refunded at their shop
+// price; dead fish are removed with no refund.
 router.delete('/:id', async (req, res) => {
   if (!requireLogin(req, res)) return
 
   try {
-    const tank = await Tank.deleteTank(req.params.id, req.session.userId)
-    if (!tank) return res.status(404).json({ message: 'Tank not found.' })
-    return res.status(200).json({ message: 'Tank deleted.' })
+    const result = await User.db.transaction(async (session) => {
+      const user = await User.findById(req.session.userId).session(session)
+      const owned = await Tank.find({ owner: req.session.userId }).sort({ createdAt: 1 }).session(session)
+      const tank = owned.find((entry) => entry._id.equals(req.params.id))
+      if (!user || !tank) return { status: 404, body: { message: 'Tank not found.' } }
+      if (tank._id.equals(owned[0]._id)) {
+        return { status: 400, body: { message: 'Your first tank cannot be deleted.' } }
+      }
+
+      // A fish that died while the user was away no longer blocks the delete.
+      simulateTank(tank, new Date(), { settle: true })
+      if (tank.fish.some((fish) => fish.health > 0)) {
+        return { status: 409, body: { message: 'Remove the living fish before deleting this tank.' } }
+      }
+
+      let refund = 0
+      for (const decoration of tank.decorations) {
+        const item = await Product.findOne({ id: decoration.itemId }).session(session)
+        if (item) refund += item.price
+      }
+
+      await Tank.deleteOne({ _id: tank._id }).session(session)
+      let pearls = user.pearls
+      if (refund > 0) {
+        const refundedUser = await User.findByIdAndUpdate(
+          user._id, { $inc: { pearls: refund } }, { new: true, session },
+        )
+        pearls = refundedUser.pearls
+        await Transaction.create([{
+          user: user._id,
+          type: 'refund',
+          label: `Items refunded from ${tank.name} (tank deleted)`,
+          amount: refund,
+        }], { session })
+      }
+      return { status: 200, body: { message: `${tank.name} deleted.`, refund, pearls } }
+    })
+    return res.status(result.status).json(result.body)
   } catch (error) {
     console.error('Delete tank failed:', error)
     return res.status(500).json({ message: 'Unable to delete the tank. Please try again.' })

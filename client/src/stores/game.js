@@ -380,6 +380,26 @@ export async function createTank(name, forItemId) {
   }
 }
 
+// Deletes a tank (DELETE /api/tanks/:id). The server refuses the first tank and any
+// tank with living fish, and refunds installed items. Returns { ok, message, refund }.
+export async function deleteTank(tankId) {
+  beginTankWrite()
+  try {
+    const { data } = await LoginApi.delete(`/api/tanks/${tankId}`)
+    tankRevision += 1
+    game.tanks = game.tanks.filter((tank) => tank.id !== tankId)
+    if (game.currentTankId === tankId) game.currentTankId = game.tanks[0]?.id || null
+    game.pearls = data.pearls
+    // Achievements count the fish and items, and a refund adds to the history.
+    refreshStats().catch((error) => console.error('Unable to refresh stats:', error))
+    return { ok: true, message: data.message, refund: data.refund }
+  } catch (error) {
+    return { ok: false, message: errorMessage(error, 'Unable to delete the tank.') }
+  } finally {
+    endTankWrite()
+  }
+}
+
 // The different species living in a tank (each species listed once).
 // Dead fish (health 0) are left out: they cannot clash with new fish.
 export function tankSpecies(tank) {
