@@ -288,8 +288,10 @@ function answerClass(answerIndex) {
 .question-photo {
   display: block;
   width: 100%;
-  height: clamp(160px, 40vw, 280px);
-  object-fit: cover;
+  height: clamp(200px, 50vw, 360px);
+  /* Show the whole photo rather than cropping it to fill the box. */
+  object-fit: contain;
+  background: var(--al-surface-2);
   border-radius: var(--al-radius-sm);
 }
 
