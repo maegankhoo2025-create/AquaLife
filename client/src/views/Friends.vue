@@ -5,12 +5,31 @@ import AppIcon from '../components/AppIcon.vue'
 import PearlCount from '../components/PearlCount.vue'
 import TankScene from '../components/TankScene.vue'
 import UserAvatar from '../components/UserAvatar.vue'
-import { conditionReading, formatDate, game, getItem } from '../stores/game'
-import {
-  social, loadSocial, loadInvitation, requestFriend, answerRequest, acceptInvitation,
-  visitFriend, giftPearls, remindFriend, commentOnTank, canDeleteComment, deleteComment, markRead, invitationUrl, copyInvitation,
-  searchUsers, cancelFriendRequest,
-} from '../stores/social'
+import { conditionReading, formatDate, useGameStore } from '../stores/game'
+import { useSocialStore } from '../stores/social'
+
+const game = useGameStore().game
+const getItem = useGameStore().getItem
+const socialStore = useSocialStore()
+const social = socialStore.social
+const {
+  loadSocial,
+  loadInvitation,
+  requestFriend,
+  answerRequest,
+  acceptInvitation,
+  visitFriend,
+  giftPearls,
+  remindFriend,
+  commentOnTank,
+  canDeleteComment,
+  deleteComment,
+  markRead,
+  invitationUrl,
+  copyInvitation,
+  searchUsers,
+  cancelFriendRequest,
+} = socialStore
 
 const route = useRoute()
 const router = useRouter()

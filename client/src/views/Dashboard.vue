@@ -1,24 +1,17 @@
 <script setup>
 import { computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
-import {
-  care,
-  formatDate,
-  game,
-  getTasks,
-  tanksNeedingCare,
-  level,
-  loadCare,
-  LOW_PEARLS,
-  lowOnPearls,
-  quizDoneToday,
-  xpInLevel,
-  xpPercent,
-  xpPerLevel,
-} from '../stores/game'
+import { storeToRefs } from 'pinia'
+import { formatDate, LOW_PEARLS, xpPerLevel, useGameStore } from '../stores/game'
 import PearlCount from '../components/PearlCount.vue'
 import TankSwiper from '../components/TankSwiper.vue'
 import AppIcon from '../components/AppIcon.vue'
+
+const gameStore = useGameStore()
+const game = gameStore.game
+const care = gameStore.care
+const { level, lowOnPearls, quizDoneToday, xpInLevel, xpPercent } = storeToRefs(gameStore)
+const { getTasks, tanksNeedingCare, loadCare } = gameStore
 
 // One row per tank with living fish, holding that tank's four tasks.
 const tankTasks = computed(() =>

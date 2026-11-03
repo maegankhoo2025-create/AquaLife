@@ -4,10 +4,15 @@
 // by the server, which also does the final marking.
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { achievements, answerQuestion, finishQuiz, getQuizQuestions, notify } from '../stores/game'
+import { storeToRefs } from 'pinia'
+import { useGameStore } from '../stores/game'
 import PearlCount from '../components/PearlCount.vue'
 import AppIcon from '../components/AppIcon.vue'
 import BadgeMedal from '../components/BadgeMedal.vue'
+
+const gameStore = useGameStore()
+const { achievements } = storeToRefs(gameStore)
+const { answerQuestion, finishQuiz, getQuizQuestions, notify } = gameStore
 
 const questions = ref([])
 const loading = ref(true)

@@ -3,8 +3,10 @@
 // It explains why, offers a tank where the fish does fit (or a brand-new tank set up
 // for it), and still lets the user go ahead with the original tank if they insist.
 import { computed } from 'vue'
-import { checkCompatibility, nextTankName, suggestTank } from '../stores/game'
+import { useGameStore } from '../stores/game'
 import AlModal from './AlModal.vue'
+
+const { checkCompatibility, nextTankName, suggestTank } = useGameStore()
 
 const props = defineProps({
   // { item, quantity } while the dialog is open, null when it is closed

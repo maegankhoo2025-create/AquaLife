@@ -1,9 +1,11 @@
 <script setup>
 // Uses native horizontal scrolling with scroll-snap for touch swipes.
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { game } from '../stores/game'
+import { useGameStore } from '../stores/game'
 import TankScene from './TankScene.vue'
 import AppIcon from './AppIcon.vue'
+
+const game = useGameStore().game
 
 const props = defineProps({
   tanks: { type: Array, required: true },

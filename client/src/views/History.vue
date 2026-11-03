@@ -1,7 +1,12 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { formatDate, game, totals } from '../stores/game'
+import { storeToRefs } from 'pinia'
+import { formatDate, useGameStore } from '../stores/game'
 import PearlCount from '../components/PearlCount.vue'
+
+const gameStore = useGameStore()
+const game = gameStore.game
+const { totals } = storeToRefs(gameStore)
 
 const filters = [
   { value: 'all', label: 'All' },

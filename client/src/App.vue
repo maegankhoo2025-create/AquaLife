@@ -5,7 +5,11 @@ import { watchEffect } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 
 import AppNavbar from './components/AppNavbar.vue'
-import { game, toast } from './stores/game'
+import { useGameStore } from './stores/game'
+
+const gameStore = useGameStore()
+const game = gameStore.game
+const toast = gameStore.toast
 
 // Keep track of the current route so the template can check its settings.
 const route = useRoute()

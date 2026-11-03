@@ -1,10 +1,14 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { buyItem, careItems, conditionReading, countInTank, game, notify } from '../stores/game'
+import { conditionReading, useGameStore } from '../stores/game'
 import AlModal from './AlModal.vue'
 import AppIcon from './AppIcon.vue'
 import ItemVisual from './ItemVisual.vue'
 import PearlCount from './PearlCount.vue'
+
+const gameStore = useGameStore()
+const game = gameStore.game
+const { buyItem, careItems, countInTank, notify } = gameStore
 
 const props = defineProps({
   id: { type: String, required: true },

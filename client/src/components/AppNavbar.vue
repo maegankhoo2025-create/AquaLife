@@ -1,12 +1,17 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { game, LOW_PEARLS, lowOnPearls } from '../stores/game'
+import { storeToRefs } from 'pinia'
+import { LOW_PEARLS, useGameStore } from '../stores/game'
 import LogoutButton from './LogoutButton.vue'
 import PearlCount from './PearlCount.vue'
 import AppIcon from './AppIcon.vue'
 import AquaLogo from './AquaLogo.vue'
 import UserAvatar from './UserAvatar.vue'
+
+const gameStore = useGameStore()
+const game = gameStore.game
+const { lowOnPearls } = storeToRefs(gameStore)
 
 const links = [
   { to: { name: 'dashboard' }, label: 'Dashboard' },

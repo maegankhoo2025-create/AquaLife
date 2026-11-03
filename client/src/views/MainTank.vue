@@ -1,16 +1,25 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import {
-  CONDITION_LIMITS,
+import { storeToRefs } from 'pinia'
+import { CONDITION_LIMITS, healthLabel, useGameStore } from '../stores/game'
+import AlModal from '../components/AlModal.vue'
+import ConditionBar from '../components/ConditionBar.vue'
+import { CARE_TIPS } from '../data/careTips'
+import TankSwiper from '../components/TankSwiper.vue'
+import AppIcon from '../components/AppIcon.vue'
+import ItemVisual from '../components/ItemVisual.vue'
+
+const gameStore = useGameStore()
+const game = gameStore.game
+const { currentTank } = storeToRefs(gameStore)
+const tank = currentTank
+const {
   createTank,
-  currentTank,
   deleteTank,
   doTask,
-  game,
   getItem,
   getTasks,
-  healthLabel,
   nextTankName,
   notify,
   refreshTank,
@@ -19,15 +28,7 @@ import {
   removeFish,
   safeRange,
   saveGoals,
-} from '../stores/game'
-import AlModal from '../components/AlModal.vue'
-import ConditionBar from '../components/ConditionBar.vue'
-import { CARE_TIPS } from '../data/careTips'
-import TankSwiper from '../components/TankSwiper.vue'
-import AppIcon from '../components/AppIcon.vue'
-import ItemVisual from '../components/ItemVisual.vue'
-
-const tank = currentTank
+} = gameStore
 const safe = computed(() => safeRange(tank.value))
 const tasks = computed(() => getTasks(tank.value.id))
 const showCreateTank = ref(false)

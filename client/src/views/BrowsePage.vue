@@ -1,26 +1,20 @@
 <script setup>
 
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
-import {
-  buyItem,
-  checkCompatibility,
-  createTank,
-  currentTank,
-  game,
-  isFreshTank,
-  loadSpeciesInfo,
-  getItems,
-  LOW_PEARLS,
-  notify,
-} from '../stores/game'
+import { storeToRefs } from 'pinia'
+import { LOW_PEARLS, useGameStore } from '../stores/game'
 import ConflictModal from '../components/ConflictModal.vue'
 import ItemCard from '../components/ItemCard.vue'
 import ItemModal from '../components/ItemModal.vue'
 import AlModal from '../components/AlModal.vue'
 import AppIcon from '../components/AppIcon.vue'
 
-const items = getItems()
+const gameStore = useGameStore()
+const game = gameStore.game
+const { currentTank } = storeToRefs(gameStore)
 const tank = currentTank
+const { buyItem, checkCompatibility, createTank, isFreshTank, loadSpeciesInfo, getItems, notify } = gameStore
+const items = getItems()
 onMounted(loadSpeciesInfo)
 
 // ---- Filters ----

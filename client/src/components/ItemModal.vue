@@ -3,11 +3,15 @@
 // with each tank, quantity and an "Add" button.
 // It only asks to add; the Browse page decides what happens (buy or show a conflict).
 import { computed, ref, watch } from 'vue'
-import { checkCompatibility, conditionReading, game } from '../stores/game'
+import { conditionReading, useGameStore } from '../stores/game'
 import AlModal from './AlModal.vue'
 import PearlCount from './PearlCount.vue'
 import ItemVisual from './ItemVisual.vue'
 import FishGallery from './FishGallery.vue'
+
+const gameStore = useGameStore()
+const game = gameStore.game
+const { checkCompatibility } = gameStore
 
 const props = defineProps({
   item: { type: Object, default: null }, // null means the dialog is closed

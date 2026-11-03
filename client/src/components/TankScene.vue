@@ -1,12 +1,17 @@
 <script setup>
 // One tank, with independent fish movement and movable decorations.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { conditionReading, game, getItem, healthLabel, moveDecoration, saveFish, tankEffect } from '../stores/game'
+import { conditionReading, healthLabel, useGameStore } from '../stores/game'
 import { createFishMotion, fitFishMotion, stepFishMotion } from './fishMotion'
 import AlModal from './AlModal.vue'
 import AppIcon from './AppIcon.vue'
 import ItemVisual from './ItemVisual.vue'
 import FishIcon from './FishIcon.vue'
+
+const gameStore = useGameStore()
+const game = gameStore.game
+const tankEffect = gameStore.tankEffect
+const { getItem, moveDecoration, saveFish } = gameStore
 
 const props = defineProps({
   tank: { type: Object, required: true },

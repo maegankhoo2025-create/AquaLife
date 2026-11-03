@@ -1,9 +1,15 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { achievements, conditionReading, game, level, saveProfile, xpInLevel, xpPercent, xpPerLevel } from '../stores/game'
+import { storeToRefs } from 'pinia'
+import { conditionReading, xpPerLevel, useGameStore } from '../stores/game'
 import BadgeMedal from '../components/BadgeMedal.vue'
 import UserAvatar from '../components/UserAvatar.vue'
+
+const gameStore = useGameStore()
+const game = gameStore.game
+const { achievements, level, xpInLevel, xpPercent } = storeToRefs(gameStore)
+const { saveProfile } = gameStore
 
 const earnedBadges = computed(() => achievements.value.filter((badge) => badge.earned))
 const lockedBadges = computed(() => achievements.value.filter((badge) => !badge.earned))

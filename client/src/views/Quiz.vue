@@ -1,10 +1,15 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import { achievements, formatDate, game, quizDoneToday } from '../stores/game'
+import { storeToRefs } from 'pinia'
+import { formatDate, useGameStore } from '../stores/game'
 import PearlCount from '../components/PearlCount.vue'
 import AppIcon from '../components/AppIcon.vue'
 import BadgeMedal from '../components/BadgeMedal.vue'
+
+const gameStore = useGameStore()
+const game = gameStore.game
+const { achievements, quizDoneToday } = storeToRefs(gameStore)
 
 const streakBadge = computed(() => achievements.value.find((badge) => badge.id === 'streak'))
 const otherBadges = computed(() => achievements.value.filter((badge) => badge.id !== 'streak'))

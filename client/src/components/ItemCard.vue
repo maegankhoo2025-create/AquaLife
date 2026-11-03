@@ -1,8 +1,10 @@
 <script setup>
 import { computed } from 'vue'
-import { checkCompatibility } from '../stores/game'
+import { useGameStore } from '../stores/game'
 import PearlCount from './PearlCount.vue'
 import ItemVisual from './ItemVisual.vue'
+
+const { checkCompatibility } = useGameStore()
 
 const props = defineProps({
   item: { type: Object, required: true },

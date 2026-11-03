@@ -5,6 +5,7 @@
 // functions here talk to the Express server through LoginApi.
 
 import { computed, reactive, watch } from 'vue'
+import { defineStore } from 'pinia'
 import LoginApi from '../LoginApi'
 import { DAILY_TASKS } from '../data/mock'
 
@@ -63,7 +64,7 @@ function loadState() {
   return state
 }
 
-export const game = reactive(loadState())
+const game = reactive(loadState())
 
 // Only preferences are kept in the browser; the game itself lives in MongoDB.
 watch(
@@ -79,10 +80,10 @@ watch(
 )
 
 // ---- Toast message (shown by App.vue) ----
-export const toast = reactive({ text: '', bad: false })
+const toast = reactive({ text: '', bad: false })
 let toastTimer
 
-export function notify(text, bad = false) {
+function notify(text, bad = false) {
   toast.text = text
   toast.bad = bad
   clearTimeout(toastTimer)
@@ -92,7 +93,7 @@ export function notify(text, bad = false) {
 // ---- Low pearl warning ----
 // Below this balance the navbar turns orange and the player gets a warning.
 export const LOW_PEARLS = 100
-export const lowOnPearls = computed(() => game.user.id !== null && game.pearls < LOW_PEARLS)
+const lowOnPearls = computed(() => game.user.id !== null && game.pearls < LOW_PEARLS)
 
 // Warn once, at the moment the balance drops below LOW_PEARLS (for example after buying).
 watch(
@@ -111,10 +112,10 @@ function errorMessage(error, fallback) {
 
 // ---- User ----
 // Called by the router guard with the user returned by GET /auth/session.
-export function setUser(user) {
+function setUser(user) {
   if (user) game.user = { id: user.id, name: user.name, email: user.email, avatar: user.avatar || '' }
 }
-export async function saveProfile(changes) {
+async function saveProfile(changes) {
   const { data } = await LoginApi.patch('/auth/profile', changes)
   setUser(data.user)
   return data
@@ -187,7 +188,7 @@ async function refreshStats() {
 }
 
 // Loads everything for the logged-in user. A brand-new account gets its first tank.
-export async function loadGame() {
+async function loadGame() {
   const revision = tankRevision
   const [me, tanks, history] = await Promise.all([
     LoginApi.get('/api/game/me'),
@@ -213,10 +214,10 @@ export async function loadGame() {
   }
 }
 
-export const care = reactive({ userId: null, today: null, percent: 0, streak: 0, windowDays: 14, days: [] })
+const care = reactive({ userId: null, today: null, percent: 0, streak: 0, windowDays: 14, days: [] })
 
 // Reads the server's saved daily snapshots so progress reflects days and weeks.
-export async function loadCare() {
+async function loadCare() {
   const userId = game.user.id
   if (!userId) return
   if (care.userId !== userId) {
@@ -236,7 +237,7 @@ export async function loadCare() {
 // background so hunger and health stay up to date.
 let loadedFor = null
 
-export async function syncGame() {
+async function syncGame() {
   if (loadedFor === game.user.id) {
     loadGame().catch((error) => console.error('Unable to refresh the game:', error))
     return
@@ -246,9 +247,9 @@ export async function syncGame() {
 }
 
 // ---- Level and XP ----
-export const level = computed(() => Math.floor(game.xp / XP_PER_LEVEL) + 1)
-export const xpInLevel = computed(() => game.xp % XP_PER_LEVEL)
-export const xpPercent = computed(() => (xpInLevel.value / XP_PER_LEVEL) * 100)
+const level = computed(() => Math.floor(game.xp / XP_PER_LEVEL) + 1)
+const xpInLevel = computed(() => game.xp % XP_PER_LEVEL)
+const xpPercent = computed(() => (xpInLevel.value / XP_PER_LEVEL) * 100)
 export const xpPerLevel = XP_PER_LEVEL
 
 // ---- Shop items ----
@@ -284,7 +285,7 @@ function forShop(product) {
 }
 
 // Ask the server for every shop item and put them in shopItems.
-export async function loadShop() {
+async function loadShop() {
   try {
     const response = await LoginApi.get('/api/products')
     const products = response.data.products || []
@@ -301,15 +302,15 @@ export async function loadShop() {
 }
 //end of code to get shop data from MongoDB
 
-export function getItems() {
+function getItems() {
   return shopItems
 }
 
-export function getItem(id) {
+function getItem(id) {
   return shopItems.find(item => item.id === id)
 }
 
-export async function loadSpeciesInfo() {
+async function loadSpeciesInfo() {
   const fishItems = shopItems.filter(item => item.category === 'fish')
 
   for (const item of fishItems) {
@@ -328,16 +329,16 @@ export async function loadSpeciesInfo() {
 }
 
 // ---- Tanks ----
-export const currentTank = computed(
+const currentTank = computed(
   () => game.tanks.find((tank) => tank.id === game.currentTankId) || game.tanks[0],
 )
 
-export function getTank(id) {
+function getTank(id) {
   return game.tanks.find((tank) => tank.id === id)
 }
 
 // Only refresh the visible tank. A read started before an edit must not replace it.
-export async function refreshTank(tankId, { force = false } = {}) {
+async function refreshTank(tankId, { force = false } = {}) {
   if (!tankId || tankId !== currentTank.value?.id || pendingTankWrites || tankRefreshes[tankId]) return
   if (typeof document !== 'undefined' && document.hidden) return
   if (!force && Date.now() - (lastTankRefresh[tankId] || 0) < 60000) return
@@ -356,7 +357,7 @@ export async function refreshTank(tankId, { force = false } = {}) {
 }
 
 // The first free "Tank N" name, e.g. "Tank 2" when the player has one tank.
-export function nextTankName() {
+function nextTankName() {
   let number = game.tanks.length + 1
   while (game.tanks.some((tank) => tank.name === `Tank ${number}`)) number += 1
   return `Tank ${number}`
@@ -364,7 +365,7 @@ export function nextTankName() {
 
 // forItemId (optional): set the new tank's water up for this fish species.
 // Returns { ok, tankId } or { ok: false, message }.
-export async function createTank(name, forItemId) {
+async function createTank(name, forItemId) {
   beginTankWrite()
   try {
     const body = { name: name.trim() }
@@ -382,7 +383,7 @@ export async function createTank(name, forItemId) {
 
 // Deletes a tank (DELETE /api/tanks/:id). The server refuses the first tank and any
 // tank with living fish, and refunds installed items. Returns { ok, message, refund }.
-export async function deleteTank(tankId) {
+async function deleteTank(tankId) {
   beginTankWrite()
   try {
     const { data } = await LoginApi.delete(`/api/tanks/${tankId}`)
@@ -402,7 +403,7 @@ export async function deleteTank(tankId) {
 
 // The different species living in a tank (each species listed once).
 // Dead fish (health 0) are left out: they cannot clash with new fish.
-export function tankSpecies(tank) {
+function tankSpecies(tank) {
   const living = tank.fish.filter((fish) => fish.health > 0)
   const ids = [...new Set(living.map((fish) => fish.speciesId))]
   return ids.map(getItem).filter(Boolean)
@@ -410,7 +411,7 @@ export function tankSpecies(tank) {
 
 // The range of each condition that suits every fish in the tank at once.
 // A value is null when the fish have no range in common.
-export function safeRange(tank) {
+function safeRange(tank) {
   const species = tankSpecies(tank)
 
   function overlap(key) {
@@ -428,7 +429,7 @@ export function safeRange(tank) {
 }
 
 // Saving a goal changes the plan, never the current reading.
-export async function saveGoals(tankId, goals) {
+async function saveGoals(tankId, goals) {
   beginTankWrite()
   try {
     const { data } = await LoginApi.patch(`/api/tanks/${tankId}/targets`, goals)
@@ -441,7 +442,7 @@ export async function saveGoals(tankId, goals) {
   }
 }
 
-export async function saveFish(tankId, fishId, changes) {
+async function saveFish(tankId, fishId, changes) {
   beginTankWrite()
   try {
     const { data } = await LoginApi.patch(`/api/tanks/${tankId}/fish/${fishId}`, changes)
@@ -457,7 +458,7 @@ export async function saveFish(tankId, fishId, changes) {
 // Removes a fish from a tank for good (DELETE /api/tanks/:id/fish/:fishId).
 // The server sends back the tank without that fish. A living fish is refunded
 // its shop price; a dead one is not. Returns { ok, message, refund }.
-export async function removeFish(tankId, fishId) {
+async function removeFish(tankId, fishId) {
   beginTankWrite()
   try {
     const { data } = await LoginApi.delete(`/api/tanks/${tankId}/fish/${fishId}`)
@@ -475,7 +476,7 @@ export async function removeFish(tankId, fishId) {
 
 // Removes a plant or decoration from a tank (DELETE /api/tanks/:id/decorations/:decorationId).
 // Its shop price is refunded. Returns { ok, message, refund }.
-export async function removeDecoration(tankId, decorationId) {
+async function removeDecoration(tankId, decorationId) {
   beginTankWrite()
   try {
     const { data } = await LoginApi.delete(`/api/tanks/${tankId}/decorations/${decorationId}`)
@@ -493,7 +494,7 @@ export async function removeDecoration(tankId, decorationId) {
 
 // Removes every dead fish (health 0) from a tank, one DELETE request per fish.
 // Returns { ok, message, removed } where removed is how many were taken out.
-export async function removeDeadFish(tankId) {
+async function removeDeadFish(tankId) {
   beginTankWrite()
   const dead = getTank(tankId).fish.filter((fish) => fish.health <= 0)
   let removed = 0
@@ -516,7 +517,7 @@ export async function removeDeadFish(tankId) {
 // Save the final position after dragging stops.
 const positionTimers = {}
 
-export function moveDecoration(tankId, decorationId, x, y) {
+function moveDecoration(tankId, decorationId, x, y) {
   const decoration = getTank(tankId).decorations.find((d) => d.id === decorationId)
   if (!decoration) return
   const changes = {
@@ -556,13 +557,13 @@ export function healthLabel(health) {
 // A "fresh" tank has no living fish and no item that changes the water
 // (equipment, pH materials or plants). Same rule as isFreshTank in server/logic/compatibility.js.
 // Its water is set up for the first fish added, so temperature and pH never conflict.
-export function isFreshTank(tank) {
+function isFreshTank(tank) {
   const hasLivingFish = tank.fish.some((fish) => fish.health > 0)
   const hasWaterItems = tank.decorations.some((decoration) => Boolean(getItem(decoration.itemId)?.effect?.condition))
   return !hasLivingFish && !hasWaterItems
 }
 
-export function checkCompatibility(item, tank, quantity = 1) {
+function checkCompatibility(item, tank, quantity = 1) {
   const reasons = []
 
   if (!item) {
@@ -666,7 +667,7 @@ export function checkCompatibility(item, tank, quantity = 1) {
 // The server describes each item's effect: which condition it changes and by how much per hour.
 // A positive rate raises the condition and a negative rate lowers it.
 // Plants have no rate (null) but help water quality, so they count as "raise".
-export function careItems(condition, direction) {
+function careItems(condition, direction) {
   return shopItems.filter((item) => {
     const effect = item.effect
     if (!effect || effect.condition !== condition) return false
@@ -676,19 +677,19 @@ export function careItems(condition, direction) {
 }
 
 // How many of this item are already in the tank (equipment is limited to one).
-export function countInTank(tank, itemId) {
+function countInTank(tank, itemId) {
   return tank.decorations.filter((decoration) => decoration.itemId === itemId).length
 }
 
 // Another tank where the item fits, or undefined if there is none.
-export function suggestTank(item, exceptTankId) {
+function suggestTank(item, exceptTankId) {
   return game.tanks.find(
     (tank) => tank.id !== exceptTankId && checkCompatibility(item, tank).ok,
   )
 }
 
 // ---- History ----
-export const totals = computed(() => {
+const totals = computed(() => {
   let earned = 0
   let spent = 0
   for (const entry of game.history) {
@@ -701,7 +702,7 @@ export const totals = computed(() => {
 // ---- Buying ----
 // Returns { ok, message }, or { ok: false, conflict: true, reasons } when the
 // server says the fish does not suit the tank. Send force to buy it anyway.
-export async function buyItem(item, tankId, quantity = 1, force = false) {
+async function buyItem(item, tankId, quantity = 1, force = false) {
   beginTankWrite()
   try {
     const { data } = await LoginApi.post('/api/game/buy', { itemId: item.id, tankId, quantity, force })
@@ -722,12 +723,12 @@ export async function buyItem(item, tankId, quantity = 1, force = false) {
 // ---- Daily care tasks ----
 // The four daily tasks for one tank. Each tank has its own, so feeding
 // Tank 1 does not count for Tank 2. done = already rewarded today for this tank.
-export function getTasks(tankId) {
+function getTasks(tankId) {
   return DAILY_TASKS.map((task) => ({ ...task, done: game.tasksDone.includes(`${task.id}:${tankId}`) }))
 }
 
 // Only tanks with living fish earn pearls for care, so only they have tasks to do.
-export function tanksNeedingCare() {
+function tanksNeedingCare() {
   return game.tanks.filter((tank) => tank.fish.some((fish) => fish.health > 0))
 }
 
@@ -735,7 +736,7 @@ export function tanksNeedingCare() {
 // TankScene.vue watches this and draws it over the matching tank.
 // "run" goes up by one each time, so doing the same task twice restarts the animation.
 const EFFECT_TIME = 2600 // ms; a little longer than the longest animation in TankScene.vue
-export const tankEffect = reactive({ tankId: null, type: null, run: 0 })
+const tankEffect = reactive({ tankId: null, type: null, run: 0 })
 let effectTimer
 
 function playEffect(tankId, type) {
@@ -748,7 +749,7 @@ function playEffect(tankId, type) {
 
 // Feed, start a water change or check temperature. Rewards are paid once a day.
 // Returns the pearls earned, or null if the request failed.
-export async function doTask(taskId, tankId) {
+async function doTask(taskId, tankId) {
   beginTankWrite()
   try {
     const { data } = await LoginApi.post(`/api/game/tasks/${taskId}`, { tankId })
@@ -768,24 +769,24 @@ export async function doTask(taskId, tankId) {
 
 // ---- Quiz ----
 // Today's questions, without their answers.
-export async function getQuizQuestions() {
+async function getQuizQuestions() {
   const { data } = await LoginApi.get('/api/quiz')
   return data.questions
 }
 
 // Checks one answer. Returns { chosen, correct, isCorrect, fact }.
 // Only the first answer to each question counts.
-export async function answerQuestion(questionId, answer) {
+async function answerQuestion(questionId, answer) {
   const { data } = await LoginApi.post('/api/quiz/answer', { questionId, answer })
   return data
 }
 
-export const quizDoneToday = computed(() => game.quiz.doneToday)
+const quizDoneToday = computed(() => game.quiz.doneToday)
 
 // Marks the finished quiz on the server. Pearls are only paid for the first
 // quiz of the day, so replaying is just practice.
 // Returns { score, total, reward }, or null if the request failed.
-export async function finishQuiz() {
+async function finishQuiz() {
   try {
     const { data } = await LoginApi.post('/api/quiz/submit')
     game.pearls = data.pearls
@@ -800,9 +801,59 @@ export async function finishQuiz() {
 
 // ---- Achievements ----
 // Worked out by the server (GET /api/game/me).
-export const achievements = computed(() => game.achievements)
+const achievements = computed(() => game.achievements)
 
 // ---- Formatting helper ----
 export function formatDate(isoDate) {
   return new Date(isoDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })
 }
+
+export const useGameStore = defineStore('game', () => ({
+  game,
+  toast,
+  care,
+  tankEffect,
+  lowOnPearls,
+  level,
+  xpInLevel,
+  xpPercent,
+  currentTank,
+  totals,
+  quizDoneToday,
+  achievements,
+  notify,
+  setUser,
+  saveProfile,
+  loadGame,
+  loadCare,
+  syncGame,
+  loadShop,
+  getItems,
+  getItem,
+  loadSpeciesInfo,
+  getTank,
+  refreshTank,
+  nextTankName,
+  createTank,
+  deleteTank,
+  tankSpecies,
+  safeRange,
+  saveGoals,
+  saveFish,
+  removeFish,
+  removeDecoration,
+  removeDeadFish,
+  moveDecoration,
+  isFreshTank,
+  checkCompatibility,
+  careItems,
+  countInTank,
+  suggestTank,
+  buyItem,
+  getTasks,
+  tanksNeedingCare,
+  doTask,
+  getQuizQuestions,
+  answerQuestion,
+  finishQuiz,
+}))

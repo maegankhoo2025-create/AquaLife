@@ -1,8 +1,9 @@
 import { reactive } from 'vue'
+import { defineStore } from 'pinia'
 import LoginApi from '../LoginApi'
-import { game, notify } from './game'
+import { useGameStore } from './game'
 
-export const social = reactive({
+const social = reactive({
   userId: null,
   friends: [], incoming: [], outgoing: [], inbox: [], inviteToken: '',
   inviter: null, inviteError: '',
@@ -14,8 +15,9 @@ function errorText(error, fallback) {
 }
 
 function resetForUser() {
-  if (social.userId === game.user.id) return
-  social.userId = game.user.id
+  const gameStore = useGameStore()
+  if (social.userId === gameStore.game.user.id) return
+  social.userId = gameStore.game.user.id
   social.friends = []
   social.incoming = []
   social.outgoing = []
@@ -27,7 +29,8 @@ function resetForUser() {
   social.error = ''
 }
 
-export async function loadSocial() {
+async function loadSocial() {
+  const gameStore = useGameStore()
   resetForUser()
   social.loading = true
   social.error = ''
@@ -41,8 +44,8 @@ export async function loadSocial() {
     social.outgoing = data.outgoing
     social.inbox = data.inbox
     social.inviteToken = data.inviteToken
-    game.pearls = data.pearls
-    game.history = history.data.history.map((entry) => ({ ...entry, id: entry._id }))
+    gameStore.game.pearls = data.pearls
+    gameStore.game.history = history.data.history.map((entry) => ({ ...entry, id: entry._id }))
     return true
   } catch (error) {
     social.error = errorText(error, 'Unable to load your friends. Please try again.')
@@ -52,7 +55,7 @@ export async function loadSocial() {
   }
 }
 
-export async function loadInvitation(token) {
+async function loadInvitation(token) {
   resetForUser()
   social.inviter = null
   social.inviteError = ''
@@ -66,29 +69,30 @@ export async function loadInvitation(token) {
 }
 
 async function change(action) {
+  const gameStore = useGameStore()
   if (social.busy) return false
   social.busy = true
   try {
     const response = await action()
-    if (typeof response.data.pearls === 'number') game.pearls = response.data.pearls
-    notify(response.data.message)
+    if (typeof response.data.pearls === 'number') gameStore.game.pearls = response.data.pearls
+    gameStore.notify(response.data.message)
     await loadSocial()
     return true
   } catch (error) {
-    notify(errorText(error, 'Unable to complete this action. Please try again.'), true)
+    gameStore.notify(errorText(error, 'Unable to complete this action. Please try again.'), true)
     return false
   } finally {
     social.busy = false
   }
 }
 
-export function requestFriend(email) {
+function requestFriend(email) {
   return change(() => LoginApi.post('/api/friends/requests', { email }))
 }
 
 // Ask the server for matching users. This does not use change(), because
 // typing in the search box should not reload the whole page or pop up a toast.
-export async function searchUsers(text) {
+async function searchUsers(text) {
   const response = await LoginApi.get('/api/friends/search', {
     params: {
       q: text,
@@ -99,19 +103,20 @@ export async function searchUsers(text) {
 
 // Cancel a request I sent. change() reloads the friends lists,
 // so the Sent requests card updates to match.
-export function cancelFriendRequest(id) {
+function cancelFriendRequest(id) {
   return change(() => LoginApi.delete(`/api/friends/requests/${id}`))
 }
 
-export function answerRequest(id, action) {
+function answerRequest(id, action) {
   return change(() => LoginApi.patch(`/api/friends/requests/${id}`, { action }))
 }
 
-export function acceptInvitation(token) {
+function acceptInvitation(token) {
   return change(() => LoginApi.post(`/api/friends/invitations/${encodeURIComponent(token)}/accept`))
 }
 
-export async function visitFriend(id) {
+async function visitFriend(id) {
+  const gameStore = useGameStore()
   social.visiting = true
   social.visit = null
   try {
@@ -128,35 +133,37 @@ export async function visitFriend(id) {
     }
     return true
   } catch (error) {
-    notify(errorText(error, 'Unable to visit this friend’s tanks.'), true)
+    gameStore.notify(errorText(error, 'Unable to visit this friend’s tanks.'), true)
     return false
   } finally {
     social.visiting = false
   }
 }
 
-export function giftPearls(friendId, amount, message) {
+function giftPearls(friendId, amount, message) {
   return change(() => LoginApi.post(`/api/friends/${friendId}/gifts`, { amount, message }))
 }
 
-export function remindFriend(friendId, tankId) {
+function remindFriend(friendId, tankId) {
   return change(() => LoginApi.post(`/api/friends/${friendId}/reminders`, { tankId }))
 }
 
-export async function commentOnTank(friendId, tankId, content) {
+async function commentOnTank(friendId, tankId, content) {
   const sent = await change(() => LoginApi.post(`/api/friends/${friendId}/comments`, { tankId, content }))
   if (sent && social.visit?.friend.id === friendId) await visitFriend(friendId)
   return sent
 }
 
-export function canDeleteComment(entry) {
+function canDeleteComment(entry) {
+  const gameStore = useGameStore()
   const senderId = entry.sender?._id ?? entry.sender?.id ?? entry.sender
   return entry.type === 'comment' && (
-    String(senderId) === String(game.user.id) || entry.canDeleteComment === true
+    String(senderId) === String(gameStore.game.user.id) || entry.canDeleteComment === true
   )
 }
 
-export async function deleteComment(id) {
+async function deleteComment(id) {
+  const gameStore = useGameStore()
   if (social.busy) return false
   social.busy = true
   try {
@@ -166,36 +173,58 @@ export async function deleteComment(id) {
     if (social.visit) {
       social.visit.comments = social.visit.comments.filter((entry) => String(entry._id) !== deletedId)
     }
-    notify(response.data.message)
+    gameStore.notify(response.data.message)
     return true
   } catch (error) {
-    notify(errorText(error, 'Unable to delete this comment. Please try again.'), true)
+    gameStore.notify(errorText(error, 'Unable to delete this comment. Please try again.'), true)
     return false
   } finally {
     social.busy = false
   }
 }
 
-export async function markRead(id) {
+async function markRead(id) {
+  const gameStore = useGameStore()
   try {
     const response = await LoginApi.patch(`/api/friends/messages/${id}/read`)
     const entry = social.inbox.find((message) => message._id === id)
     if (entry) entry.readAt = response.data.message.readAt
   } catch (error) {
-    notify(errorText(error, 'Unable to mark this message as read.'), true)
+    gameStore.notify(errorText(error, 'Unable to mark this message as read.'), true)
   }
 }
 
-export function invitationUrl() {
+function invitationUrl() {
   if (!social.inviteToken) return ''
   return `${window.location.origin}/friends?invite=${encodeURIComponent(social.inviteToken)}`
 }
 
-export async function copyInvitation() {
+async function copyInvitation() {
+  const gameStore = useGameStore()
   try {
     await navigator.clipboard.writeText(invitationUrl())
-    notify('Invitation link copied.')
+    gameStore.notify('Invitation link copied.')
   } catch {
-    notify('Copy the invitation from the link field below.', true)
+    gameStore.notify('Copy the invitation from the link field below.', true)
   }
 }
+
+export const useSocialStore = defineStore('social', () => ({
+  social,
+  loadSocial,
+  loadInvitation,
+  requestFriend,
+  searchUsers,
+  cancelFriendRequest,
+  answerRequest,
+  acceptInvitation,
+  visitFriend,
+  giftPearls,
+  remindFriend,
+  commentOnTank,
+  canDeleteComment,
+  deleteComment,
+  markRead,
+  invitationUrl,
+  copyInvitation,
+}))
