@@ -384,7 +384,8 @@ async function sendComment() {
       <p v-else class="text-muted-al">Your friend has no tanks yet.</p>
       <section class="gift-panel" aria-labelledby="gift-heading">
         <h3 id="gift-heading" class="h5">Gift pearls to {{ social.visit.friend.name }}</h3>
-        <p class="small">Your balance: <PearlCount :amount="game.pearls" />. Gifted pearls come out of this balance.</p>
+        <p class="small">Your balance: <PearlCount :amount="game.pearls" /></p>
+        <p>Gifted pearls come out of this balance.</p>
         <form @submit.prevent="sendGift">
           <label for="gift-amount" class="mb-1">Pearls</label>
           <input id="gift-amount" v-model.number="giftAmount" type="number" min="1" :max="Math.min(game.pearls, 1000000)" step="1" required class="form-control gift-amount mb-2" :disabled="social.busy" />
