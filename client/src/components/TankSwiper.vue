@@ -54,6 +54,8 @@ function onScroll() {
 watch(
   () => [props.modelValue, props.tanks.length],
   async () => {
+    // A timer started before this change would read the old position and undo it.
+    clearTimeout(scrollTimer)
     await nextTick()
     scrollToIndex(indexOfCurrent())
   },

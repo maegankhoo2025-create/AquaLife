@@ -16,10 +16,11 @@ const initial = computed(() => (props.name.charAt(0) || '?').toUpperCase())
 <template>
   <span
     class="user-avatar"
+    data-testid="user-avatar"
     :style="{ width: `${size}px`, height: `${size}px`, fontSize: `${size * 0.42}px` }"
     aria-hidden="true"
   >
-    <img v-if="src" :src="src" alt="" />
+    <img v-if="src" :src="src" alt="" data-testid="user-avatar-image" />
     <span v-else>{{ initial }}</span>
   </span>
 </template>

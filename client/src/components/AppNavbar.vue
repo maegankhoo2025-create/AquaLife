@@ -42,7 +42,7 @@ watch(
       </RouterLink>
 
       <!-- On small screens the pearl balance sits beside the hamburger button -->
-      <div class="d-flex align-items-center gap-3 order-lg-last">
+      <div class="d-flex align-items-center gap-2 gap-sm-3 order-lg-last">
         <!-- Turns orange when the balance is below LOW_PEARLS -->
         <span
           class="pearl-pill"
@@ -72,7 +72,8 @@ watch(
       <div id="main-menu" class="collapse navbar-collapse" :class="{ show: menuOpen }">
         <ul class="navbar-nav me-auto">
           <li v-for="link in links" :key="link.label" class="nav-item">
-            <RouterLink class="nav-link" active-class="active" :to="link.to">
+            <!-- Tapping the current page does not change the route, so close the menu here too. -->
+            <RouterLink class="nav-link" active-class="active" :to="link.to" @click="menuOpen = false">
               {{ link.label }}
             </RouterLink>
           </li>
@@ -148,6 +149,13 @@ watch(
 .pearl-pill--low {
   border-color: var(--al-warn);
   color: var(--al-warn);
+}
+
+/* Keeps the logo, balance, profile and menu button on one row on small phones */
+@media (max-width: 575.98px) {
+  .navbar-brand {
+    margin-right: 0.5rem;
+  }
 }
 
 @media (hover: hover) {

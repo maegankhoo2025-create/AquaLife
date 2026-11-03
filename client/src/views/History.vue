@@ -100,19 +100,21 @@ const entries = computed(() =>
       </div>
 
       <!-- Stacked rows on phones -->
-      <ul class="al-card al-list d-md-none">
-        <li v-for="entry in entries" :key="entry.id">
-          <span class="al-grow">
-            {{ entry.label }}
-            <span class="d-block small text-muted-al">
-              {{ formatDate(entry.date) }} · {{ TYPES[entry.type].label }}
+      <div class="al-card d-md-none">
+        <ul class="al-list">
+          <li v-for="entry in entries" :key="entry.id">
+            <span class="al-grow">
+              {{ entry.label }}
+              <span class="d-block small text-muted-al">
+                {{ formatDate(entry.date) }} · {{ TYPES[entry.type].label }}
+              </span>
             </span>
-          </span>
-          <span :class="entry.amount > 0 ? 'text-earned' : 'text-spent'">
-            <PearlCount :amount="entry.amount" signed />
-          </span>
-        </li>
-      </ul>
+            <span :class="entry.amount > 0 ? 'text-earned' : 'text-spent'">
+              <PearlCount :amount="entry.amount" signed />
+            </span>
+          </li>
+        </ul>
+      </div>
     </template>
   </main>
 </template>

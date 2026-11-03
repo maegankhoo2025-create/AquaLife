@@ -94,13 +94,14 @@ function notify(text, bad = false) {
 // Below this balance the navbar turns orange and the player gets a warning.
 export const LOW_PEARLS = 100
 const lowOnPearls = computed(() => game.user.id !== null && game.pearls < LOW_PEARLS)
+const LOW_PEARLS_WARNING = "Oh no, you're running out of pearls! Do your care tasks and the daily quiz to earn more."
 
 // Warn once, at the moment the balance drops below LOW_PEARLS (for example after buying).
 watch(
   () => game.pearls,
   (newPearls, oldPearls) => {
     if (oldPearls >= LOW_PEARLS && newPearls < LOW_PEARLS) {
-      notify("Oh no, you're running out of pearls! Do your care tasks and the daily quiz to earn more.", true)
+      notify(LOW_PEARLS_WARNING, true)
     }
   },
 )
@@ -707,9 +708,11 @@ async function buyItem(item, tankId, quantity = 1, force = false) {
   try {
     const { data } = await LoginApi.post('/api/game/buy', { itemId: item.id, tankId, quantity, force })
     putTank(data.tank)
+    const droppedBelowLow = game.pearls >= LOW_PEARLS && data.pearls < LOW_PEARLS
     game.pearls = data.pearls
     refreshStats().catch((error) => console.error('Unable to refresh stats:', error))
-    return { ok: true, message: data.message }
+    // Pages show this message straight after buying, which replaces the watcher's warning.
+    return { ok: true, message: droppedBelowLow ? `${data.message} ${LOW_PEARLS_WARNING}` : data.message }
   } catch (error) {
     if (error.response?.status === 409) {
       return { ok: false, conflict: true, message: error.response.data.message, reasons: error.response.data.reasons }
