@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test'
-import { signUpFreshUser } from './helpers.js'
+import { expect } from '@playwright/test'
+import { signUpFreshUser, test } from './helpers.js'
 import { JAVA_MOSS, SUNKEN_CASTLE, THERMOSTATIC_HEATER, ZEBRA_DANIO } from './products.js'
 import {
   STARTING_PEARLS,

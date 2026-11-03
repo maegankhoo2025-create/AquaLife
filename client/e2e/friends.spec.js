@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { expect, test } from '@playwright/test'
-import { signUpFreshUser } from './helpers.js'
+import { expect } from '@playwright/test'
+import { signUpFreshUser, test } from './helpers.js'
 
 const API = 'http://localhost:8000'
 

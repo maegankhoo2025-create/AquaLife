@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test'
-import { signUpFreshUser } from './helpers.js'
+import { expect } from '@playwright/test'
+import { signUpFreshUser, test } from './helpers.js'
 
 const API = 'http://localhost:8000'
 const NAVBAR_EXPANDS_AT = 992 // Bootstrap's lg breakpoint, used by navbar-expand-lg

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
-import { expect, test } from '@playwright/test'
-import { signUpFreshUser } from './helpers.js'
+import { expect } from '@playwright/test'
+import { signUpFreshUser, test } from './helpers.js'
 
 const AVATAR_FILE = fileURLToPath(new URL('./fixtures/avatar.png', import.meta.url))
 const DEFAULT_INITIAL = 'E' // first letter of the helper's "E2E Tester"

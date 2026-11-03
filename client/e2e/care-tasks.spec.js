@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test'
-import { signUpFreshUser } from './helpers.js'
+import { expect } from '@playwright/test'
+import { signUpFreshUser, test } from './helpers.js'
 
 const FISH = { name: 'Zebra Danio', price: 20 }
 const STARTING_PEARLS = 500

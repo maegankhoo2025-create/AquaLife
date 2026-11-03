@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test'
-import { signUpFreshUser } from './helpers.js'
+import { expect } from '@playwright/test'
+import { signUpFreshUser, test } from './helpers.js'
 
 const FIRST_FISH = { name: 'Zebra Danio', price: 20 } // sets Tank 1 up at 22°C
 const WARM_FISH = { name: 'Cherry Barb', price: 30 } // needs at least 23°C

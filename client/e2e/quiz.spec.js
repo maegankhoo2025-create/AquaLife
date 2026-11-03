@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test'
-import { signUpFreshUser } from './helpers.js'
+import { expect } from '@playwright/test'
+import { signUpFreshUser, test } from './helpers.js'
 
 // The first request of the day builds the question pool from outside species APIs.
 const QUIZ_LOAD_TIMEOUT = 25000
