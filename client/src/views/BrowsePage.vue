@@ -1,6 +1,6 @@
 <script setup>
 
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import {
   buyItem,
   checkCompatibility,
@@ -17,6 +17,7 @@ import ConflictModal from '../components/ConflictModal.vue'
 import ItemCard from '../components/ItemCard.vue'
 import ItemModal from '../components/ItemModal.vue'
 import AlModal from '../components/AlModal.vue'
+import AppIcon from '../components/AppIcon.vue'
 
 const items = getItems()
 const tank = currentTank
@@ -47,6 +48,36 @@ const filteredItems = computed(() =>
     return true
   }),
 )
+
+// ---- Phone pages ----
+// Below 768px (the two-column grid) the shop shows 6 items per page; wider screens show everything.
+const PAGE_SIZE = 6
+const phoneQuery = window.matchMedia('(max-width: 767.98px)')
+const isPhone = ref(phoneQuery.matches)
+function onPhoneChange(event) {
+  isPhone.value = event.matches
+}
+onMounted(() => phoneQuery.addEventListener('change', onPhoneChange))
+onUnmounted(() => phoneQuery.removeEventListener('change', onPhoneChange))
+
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil(filteredItems.value.length / PAGE_SIZE)))
+const visibleItems = computed(() => {
+  if (!isPhone.value) return filteredItems.value
+  const start = (page.value - 1) * PAGE_SIZE
+  return filteredItems.value.slice(start, start + PAGE_SIZE)
+})
+
+// New filters start again from page 1.
+watch([category, onlyFits, careLevels], () => { page.value = 1 }, { deep: true })
+// Keep the page in range if the list shrinks (e.g. "Only fits" after buying).
+watch(pageCount, (count) => { if (page.value > count) page.value = count })
+
+const shopTop = ref(null)
+function goToPage(number) {
+  page.value = number
+  shopTop.value?.scrollIntoView({ block: 'start' })
+}
 
 function clearFilters() {
   category.value = 'all'
@@ -209,10 +240,10 @@ async function buy(item, tankId, quantity, force = false, confirmedLowBalance = 
         </div>
       </div>
 
-      <section aria-label="Shop items">
+      <section ref="shopTop" class="shop-items" aria-label="Shop items">
         <p class="small text-muted-al" role="status">{{ filteredItems.length }} items</p>
         <div class="shop-grid">
-          <div v-for="item in filteredItems" :key="item.id">
+          <div v-for="item in visibleItems" :key="item.id">
             <ItemCard :item="item" :tank="tank" @open="selectedItem = $event" />
           </div>
         </div>
@@ -220,6 +251,16 @@ async function buy(item, tankId, quantity, force = false, confirmedLowBalance = 
           Nothing matches these filters.
           <button class="btn btn-link" type="button" @click="clearFilters">Clear filters</button>
         </p>
+
+        <nav v-if="isPhone && pageCount > 1" class="shop-pages" aria-label="Shop pages">
+          <button class="btn btn-ghost" type="button" :disabled="page === 1" @click="goToPage(page - 1)">
+            <AppIcon name="chevron-left" /> Prev
+          </button>
+          <span class="shop-pages__count" aria-live="polite">Page {{ page }} of {{ pageCount }}</span>
+          <button class="btn btn-ghost" type="button" :disabled="page === pageCount" @click="goToPage(page + 1)">
+            Next <AppIcon name="chevron-right" />
+          </button>
+        </nav>
       </section>
     </div>
 
@@ -289,6 +330,24 @@ async function buy(item, tankId, quantity, force = false, confirmedLowBalance = 
   .shop-grid {
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   }
+}
+
+.shop-items {
+  scroll-margin-top: 5rem; /* clear the sticky navbar when jumping back to the top */
+}
+
+/* Page toggle: bottom middle, under the grid */
+.shop-pages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.shop-pages__count {
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .shop-for {
