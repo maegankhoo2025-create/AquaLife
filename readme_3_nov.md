@@ -286,7 +286,8 @@ AquaLife/
 
 1. **Login (`/login`).** Log in, or switch to sign up. A new account gets 500 pearls. The first load of the app creates an empty **Tank 1**.
 2. **Dashboard (`/dashboard`).** Pearls, level, XP, today's care tasks, recent activity, and the 14-day care score.
-3. **My Tank (`/main-tank`).** The aquarium. Read the three condition bars, save **Goals**, then **Feed fish**, clean, check temperature, or check pH. Open a fish for health, hunger, size, nickname, and notes. **Decorate** to drag items. Remove a fish or an item to refund it.
+3. **My Tank (`/main-tank`).** The aquarium. Read the three condition bars, save **Goals**, then **Feed fish**, clean, check temperature, or check pH. Open a fish for health, hunger, size, nickname, and notes. If fishes are not moving, on Windows, check settings >accessibility >visual effects >animation effects turn on animation effects. 
+**Decorate** to drag items. Remove a fish or an item to refund it.
 4. **Shop (`/browse`).** Pick the destination tank, filter by Fish, Plants, Decor, or Equipment, open an item for its care data and effects, and add it.
 5. **Quiz (`/quiz`, `/quiz/play`).** The daily five questions. Each answer shows whether it was right and a short fact. Results show pearls earned and the streak.
 6. **History (`/history`).** Purchases, rewards, refunds, and gifts, newest first.
