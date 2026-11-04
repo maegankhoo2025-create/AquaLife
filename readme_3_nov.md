@@ -200,11 +200,14 @@ now in command line in vs code, from the AquaLife folder, run
 ```bash
 cd server
 node seed-products.js
+pnpm i
+pnpm dev
 ```
+check that the server is up and running,
 
-then run
+then open a new terminal tab, if it starts from AquaLife folder, type
 ```bash
-cd ../client 
+cd client 
 npx playwright test --project=chromium --ui
 ```
 
