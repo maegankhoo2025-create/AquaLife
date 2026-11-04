@@ -1,40 +1,26 @@
-import { expect } from '@playwright/test'
+import { expect as baseExpect } from '@playwright/test'
 import { signUpFreshUser, test } from './helpers.js'
+import { ZEBRA_DANIO } from './products.js'
+import {
+  STARTING_PEARLS,
+  buyItem,
+  expectBalance,
+  openMyTank,
+  openShop,
+} from './shop-helpers.js'
 
-const FISH = { name: 'Zebra Danio', price: 20 }
-const STARTING_PEARLS = 500
+test.describe.configure({ timeout: 120_000 })
 
-async function expectBalance(page, amount) {
-  await expect(page.getByRole('navigation', {
-    name: 'Main',
-  }).getByText(String(amount), {
-    exact: true,
-  })).toBeVisible()
-}
+// A care task saves to the database in a transaction, which can take several seconds.
+const expect = baseExpect.configure({ timeout: 15_000 })
 
-async function openMyTank(page) {
-  await page.getByRole('link', { name: 'My Tank', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'My aquarium' })).toBeVisible()
-}
-
-// Buys one fish into whichever tank is selected, through the shop page.
-async function buyFish(page, tankName) {
-  // My Tank has its own Shop button as well, so use the one in the navbar.
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Shop', exact: true }).click()
-  await page.getByRole('button', { name: new RegExp(FISH.name) }).click()
-
-  const dialog = page.getByRole('dialog', { name: FISH.name })
-  await dialog.getByRole('button', { name: new RegExp(`^Add to ${tankName}`) }).click()
-
-  await expect(page.getByText(`Added 1 × ${FISH.name} to ${tankName}.`)).toBeVisible()
-}
+const AFTER_FISH = STARTING_PEARLS - ZEBRA_DANIO.price
 
 function taskButton(page, label) {
   return page.getByRole('button', { name: new RegExp(`^${label}`) })
 }
 
 async function doTask(page, label) {
-  // Clean tank stays disabled while the water is at exactly 100%.
   await expect(taskButton(page, label)).toBeEnabled()
   await taskButton(page, label).click()
 }
@@ -53,6 +39,15 @@ async function doUnpaidTask(page, label, balance) {
   await doTask(page, label)
   await expect(page.getByText(`${label}: done`, { exact: true })).toBeVisible()
   await expectBalance(page, balance)
+}
+
+// Clean tank is disabled at exactly 100% water, where a new tank starts. Every task
+// settles the simulation, which drops the water just below 100, so Clean never goes first.
+async function doAllTasksForPearls(page) {
+  await doPaidTask(page, 'Feed fish', 20, AFTER_FISH + 20)
+  await doPaidTask(page, 'Clean tank', 30, AFTER_FISH + 50)
+  await doPaidTask(page, 'Check temperature', 15, AFTER_FISH + 65)
+  await doPaidTask(page, 'Check pH', 15, AFTER_FISH + 80)
 }
 
 test('care tasks on an empty tank pay no pearls', async ({ page }) => {
@@ -76,43 +71,38 @@ test('care tasks on an empty tank pay no pearls', async ({ page }) => {
 
 test('each care task pays its exact reward once the tank has a fish', async ({ page }) => {
   await signUpFreshUser(page)
-  await buyFish(page, 'Tank 1')
-  await expectBalance(page, STARTING_PEARLS - FISH.price)
+  await buyItem(page, ZEBRA_DANIO)
+  await expectBalance(page, AFTER_FISH)
   await openMyTank(page)
 
-  await doPaidTask(page, 'Feed fish', 20, 500)
-  await doPaidTask(page, 'Clean tank', 30, 530)
-  await doPaidTask(page, 'Check temperature', 15, 545)
-  await doPaidTask(page, 'Check pH', 15, 560)
+  await doAllTasksForPearls(page)
 
   await page.reload()
-  await expectBalance(page, 560)
+  await expectBalance(page, AFTER_FISH + 80)
 })
 
 test('repeating a care task on the same day pays no extra pearls', async ({ page }) => {
   await signUpFreshUser(page)
-  await buyFish(page, 'Tank 1')
+  await buyItem(page, ZEBRA_DANIO)
   await openMyTank(page)
 
-  await doPaidTask(page, 'Feed fish', 20, 500)
-  await doPaidTask(page, 'Clean tank', 30, 530)
-  await doPaidTask(page, 'Check temperature', 15, 545)
-  await doPaidTask(page, 'Check pH', 15, 560)
+  await doAllTasksForPearls(page)
 
-  await doUnpaidTask(page, 'Feed fish', 560)
-  await doUnpaidTask(page, 'Clean tank', 560)
-  await doUnpaidTask(page, 'Check temperature', 560)
-  await doUnpaidTask(page, 'Check pH', 560)
+  const balance = AFTER_FISH + 80
+  await doUnpaidTask(page, 'Feed fish', balance)
+  await doUnpaidTask(page, 'Clean tank', balance)
+  await doUnpaidTask(page, 'Check temperature', balance)
+  await doUnpaidTask(page, 'Check pH', balance)
 
   await page.reload()
-  await expectBalance(page, 560)
+  await expectBalance(page, balance)
 })
 
 test('care rewards are per tank, so a task already done on Tank 1 still pays on Tank 2', async ({ page }) => {
   await signUpFreshUser(page)
-  await buyFish(page, 'Tank 1')
+  await buyItem(page, ZEBRA_DANIO)
   await openMyTank(page)
-  await doPaidTask(page, 'Feed fish', 20, 500)
+  await doPaidTask(page, 'Feed fish', 20, STARTING_PEARLS)
 
   await page.getByRole('button', { name: 'New tank' }).click()
   const dialog = page.getByRole('dialog', { name: 'Create a tank' })
@@ -120,13 +110,16 @@ test('care rewards are per tank, so a task already done on Tank 1 still pays on 
   await dialog.getByRole('button', { name: 'Create and select tank' }).click()
   await expect(page.getByText('Tank created and selected.')).toBeVisible()
 
-  await buyFish(page, 'Tank 2')
-  await expectBalance(page, 480)
+  await openShop(page)
+  await expect(page.getByLabel('Shopping for').locator('option:checked')).toHaveText('Tank 2')
+
+  await buyItem(page, ZEBRA_DANIO, { tankName: 'Tank 2' })
+  await expectBalance(page, AFTER_FISH)
   await openMyTank(page)
 
   await expect(taskButton(page, 'Feed fish')).toContainText('+20 pearls')
-  await doPaidTask(page, 'Feed fish', 20, 500)
+  await doPaidTask(page, 'Feed fish', 20, STARTING_PEARLS)
 
   await page.reload()
-  await expectBalance(page, 500)
+  await expectBalance(page, STARTING_PEARLS)
 })
