@@ -187,7 +187,7 @@ function selectTank(tankId) {
             <UserAvatar :src="game.user.avatar" :name="game.user.name" :size="72" />
             <div class="al-grow">
               <label for="profile-picture" class="form-label mb-1">Profile picture</label>
-              <input id="profile-picture" type="file" accept="image/png,image/jpeg,image/webp" class="form-control" :disabled="isSaving || isReadingPicture" @change="choosePicture" />
+              <input id="profile-picture" type="file" accept="image/png,image/jpeg,image/webp" class="form-control picture-input" :disabled="isSaving || isReadingPicture" @change="choosePicture" />
               <p class="small text-muted-al mt-1 mb-1">PNG, JPEG or WebP up to 5 MB. It is saved straight away.</p>
               <p v-if="isReadingPicture" class="small text-muted-al mb-1" role="status">Preparing picture…</p>
               <p v-if="pictureMessage" class="small mb-1" :class="pictureIsError ? 'text-danger' : 'text-muted-al'" :role="pictureIsError ? 'alert' : 'status'">{{ pictureMessage }}</p>
@@ -344,6 +344,20 @@ function selectTank(tankId) {
 
 .profile-head__xp {
   max-width: 28rem;
+}
+
+/* The "Choose file" button fills the whole bar; the "No file chosen" text is pushed out of view */
+.picture-input {
+  padding: 0;
+  overflow: hidden;
+}
+
+.picture-input::file-selector-button {
+  width: 100%;
+  min-height: var(--al-tap);
+  margin: 0;
+  border: 0;
+  font-weight: 700;
 }
 
 .picture-field {

@@ -143,7 +143,7 @@ async function buy(item, tankId, quantity, force = false, confirmedLowBalance = 
 
 <template>
   <main class="container al-page">
-    <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-3">
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
       <h1 class="al-title">Shop</h1>
       <div class="shop-for">
         <label for="shop-tank" class="small text-muted-al">Shopping for</label>
