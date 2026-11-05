@@ -112,11 +112,22 @@ cd ..
 ## 3. Create your own MongoDB Atlas cluster
 
 1. Go to [mongodb.com/atlas](https://www.mongodb.com/atlas) and sign in (or create a free account).
-2. Create a free cluster and a database user. Save the username and password.
-The Atlas cluster is free with 512MB of storage by default but you can choose to upgrade it for a subscription fee.
-3. Under **Network Access**, allow your current IP address. The server cannot connect until Atlas allows that address.
-To allow other users to access the same database, on the left sidebar, go to security> Database and Network Access> IP Access List and add IP address 0.0.0.0/0
-4. Choose **Connect** and copy the SRV connection string. You will paste it into `.env` in the next step. Put the database name in the path, for example `aqualife`.
+2. Create a project. In MongoDB Atlas, at All Projects, choose New Project.
+3. Enter a project name and finish creating the project.
+4. Create the cluster. Open the new project and choose Create a cluster.
+5. Select the Free plan.
+6. Rename the cluster to a name you will recognize.
+7. Click Create Deployment.
+8. Save the connection details
+
+Atlas opens a Connect to cluster window.
+1. Copy the database username and password, and store them somewhere private. Keep them before you leave this window. If you lose the password later, reset it in Atlas.
+2. Click Choose a connection method.
+3. Select Drivers and client libraries.
+4. Copy the connection string. It starts with mongodb+srv://.
+5. Store the connection string in the same place as the username and password.
+6. Click Done.
+When you use the connection string, replace the <password> placeholder with the password you saved. Treat the username, password, and connection string as secrets, and do not commit them to a repository.
 
 
 
