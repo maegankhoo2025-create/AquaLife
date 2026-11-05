@@ -247,15 +247,20 @@ now in command line in vs code, from the AquaLife root folder, run
 ```bash
 cd server
 node seed-products.js
-cd ..
+pnpm i
+pnpm dev
 ```
-
+then open a new tab in command line,
 check that you are at AquaLife folder, type
 ```bash
 cd client 
-pnpm playwright test          # run the full suite headlessly or
+#either:
+pnpm playwright test          # run the full suite headlessly
+#or
 pnpm playwright test --ui     # run interactively in Playwright's UI mode
 #run all tests by clicking the green triangle play button at the top along the tests row.
+
+#and then generate a report
 pnpm playwright show-report   # open the HTML report from the last run
 ```
 
