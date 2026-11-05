@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import LoginApi from '../LoginApi'
 import { conditionReading } from '../stores/game'
 
 const species = ref([])
@@ -12,8 +12,8 @@ async function loadSpecies() {
   errorMessage.value = ''
 
   try {
-    const response = await axios.get(
-      'http://localhost:8000/api/species/quiz-data'
+    const response = await LoginApi.get(
+      '/api/species/quiz-data'
     )
     species.value = response.data.species
   } catch (error) {
@@ -36,8 +36,8 @@ async function searchSpecies() {
   searchMessage.value = ''
 
   try {
-    const response = await axios.get(
-      'http://localhost:8000/api/species',
+    const response = await LoginApi.get(
+      '/api/species',
       { params: { name } }
     )
 

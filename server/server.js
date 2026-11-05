@@ -22,6 +22,9 @@ const friendRoutes = require('./routes/friends-routes');
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+// The host's proxy handles HTTPS, so trust it or secure session cookies are never sent
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(
   cors({
