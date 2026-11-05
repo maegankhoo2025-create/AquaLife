@@ -180,7 +180,31 @@ Keep these hostnames and ports:
 Grading checks the layout in Chrome, from a phone-sized viewport (iPhone 6) up to Bootstrap's XL breakpoint.
 
 ## 7. Run the tests
+### What's in the suite
+All files below are located in `client/e2e/`.
 
+| File | What it covers |
+| --- | --- |
+| `account-defaults.spec.js` | Checks that new accounts start with 500 pearls, level 1, 0 XP and one empty tank, including after reload and logging in again. |
+| `auth.spec.js` | Tests valid login, incorrect passwords, unknown emails, logout and redirects to login when accessing protected pages while logged out. |
+| `badges.spec.js` | Checks the Bronze First Fin badge on Quiz and Profile, including persistence after reload and logging in again. |
+| `care-guide-2.spec.js` | Tests fixing low tank temperature by buying a heater through the care guide. |
+| `care-tasks-2.spec.js` | Checks care task rewards, no rewards for empty tanks, daily reward limits and separate rewards for each tank. |
+| `compatibility.spec.js` | Tests compatibility warnings, creating a second tank, adding incompatible fish anyway and cancelling without changing account or tank data. |
+| `date-rollover.spec.js` | Checks that care tasks reward pearls again the next day and the quiz streak increases to two days. |
+| `friends.spec.js` | Tests friend requests, invite links, read-only tank visits, comments, reminders, pearl gifts and blocking gifts above the available balance. |
+| `pearls.spec.js` | Tests low-balance warnings, insufficient-balance purchases, exact-balance purchases and cancelling purchase confirmations. |
+| `profile.spec.js` | Tests profile picture changes, name and email updates, invalid-input handling and persistence after reload. |
+| `quiz.spec.js` | Tests real daily quiz loading, controlled scoring and rewards using mocked questions, practice attempts without extra rewards and quiz rewards in History. |
+| `removal.spec.js` | Tests fish and item refunds, refund records in History and whether tank readings reset after removing the last fish. |
+| `shop.spec.js` | Tests fish and item purchases, correct charges and quantities, persistence after reload, History records and category and care level filters. |
+| `signup.spec.js` | Tests registering a new account and opening the Dashboard. |
+| `helpers.js` | Provides fresh test-account registration and a shared Playwright test fixture that automatically deletes each test's accounts and related data afterwards. |
+| `shop-helpers.js` | Provides shared navigation, balance checks, item purchases and History table helpers. |
+| `products.js` | Defines known product IDs, names and prices used across the tests. |
+| `cleanup.js` | Tracks test accounts and provides cleanup after all tests in a file, restricted to databases whose names start with `aqualife_test_`. |
+
+Read `helpers.js` and `shop-helpers.js` first to understand the shared setup and common actions. Test files reuse these helpers instead of repeating registration, navigation and purchase steps.
 
 ### One-time setup
 
