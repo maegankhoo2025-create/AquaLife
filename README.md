@@ -341,16 +341,8 @@ We used AI to:
 - research for APIs that we can connect to get useful fish information and pictures
 - explain coding errors and debugging hints, and learn from our mistakes.
 - suggest pearl prices for each different fish species
+- help for debugging
+- outline for README
+- aided in deployment steps 
 
 
-
-
-
-## Ethical use
-
-- **Use your own Atlas cluster and fake accounts.** Sign up with addresses like `user1@example.com`. Keep real names, emails, and personal details out of the database.
-- **Keep `.env` private.** The connection string and `SESSION_SECRET` are credentials. Leave them out of Git, slides, and chat.
-
-## Disclaimer
-
-AquaLife is a student project for IS216. It is a simplified simulation. Do not treat its care advice as instructions for a real tank. 
