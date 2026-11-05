@@ -311,11 +311,12 @@ The running app does not call an AI or LLM service. Quiz questions are filled in
 [`server/server.js`](server/server.js) already notes that its boilerplate was generated with AI assistance
 
 We used AI to:
--research on the best colour scheme for aquarium-themed apps.
--research on best practices for app designs.
--research for APIs that we can connect to get useful fish information and pictures
--explain coding errors and debugging hints, and learn from our mistakes.
--suggest pearl prices for each different fish species
+
+- research on the best colour scheme for aquarium-themed apps.
+- research on best practices for app designs.
+- research for APIs that we can connect to get useful fish information and pictures
+- explain coding errors and debugging hints, and learn from our mistakes.
+- suggest pearl prices for each different fish species
 
 
 
