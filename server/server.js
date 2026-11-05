@@ -1,5 +1,5 @@
 // AquaLife backend entry point.
-// Boilerplate generated with AI assistance (declare in README.txt).
+// Boilerplate generated with AI assistance
 
 require('dotenv').config();
 const express = require('express');
