@@ -7,7 +7,6 @@ This repository is the **IS216 Web Application Development II** group project fo
 
 Public repository: [github.com/maegankhoo2025-create/AquaLife](https://github.com/maegankhoo2025-create/AquaLife)
 
-
 ## Problem and solution
 
 **Problem.** People often buy fish before they know the temperature and pH those fish need, or which species can share a tank. The fish then live in the wrong water, or with the wrong tankmates.
@@ -43,7 +42,15 @@ The layout uses the Bootstrap 5 grid, so cards stack on a phone and sit side by 
 
 ## Use our deployed web app
 
-Open <your Vercel URL> and sign up with a fake email address. You do not need to install anything.
+Open https://aqua-life-green.vercel.app and sign up with a fake email address. You do not need to install anything.
+
+Example: 
+
+Name: Grader1
+
+Email address: grade1@gmail.com
+
+Password: grade123
 
 E2E tests do not run against this site because they need direct database access. To run them, set up the app locally and follow [step 7](#7-run-the-tests).
 
