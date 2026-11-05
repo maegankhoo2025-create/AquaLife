@@ -4,7 +4,7 @@ import { signUpFreshUser, test } from './helpers.js'
 
 const API = 'http://localhost:8000'
 
-test.describe.configure({ timeout: 60000 })
+test.describe.configure({ timeout: 120_000 })
 
 // Closed after each test so the two browser windows do not pile up.
 let contexts = []

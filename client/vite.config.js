@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'
@@ -8,7 +9,8 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 export default defineConfig({
   plugins: [
     vue(),
-    vueDevTools(),
+    // Playwright sets E2E, because the DevTools floating button can block clicks in tests.
+    ...(process.env.E2E ? [] : [vueDevTools()]),
   ],
   resolve: {
     alias: {

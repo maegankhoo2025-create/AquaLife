@@ -14,7 +14,7 @@ const DAY = 24 * 60 * 60 * 1000
 
 // The first request of the day builds the question pool from outside species APIs.
 const QUIZ_LOAD_TIMEOUT = 25000
-test.describe.configure({ timeout: 90000 })
+test.describe.configure({ timeout: 180_000 })
 
 // Same day format as dayKey in server/logic/gamification.js (Singapore time).
 function dayBefore(day) {

@@ -3,7 +3,7 @@ import { signUpFreshUser, test } from './helpers.js'
 
 // The first request of the day builds the question pool from outside species APIs.
 const QUIZ_LOAD_TIMEOUT = 25000
-test.describe.configure({ timeout: 60000 })
+test.describe.configure({ timeout: 120_000 })
 
 const MOCK_QUESTIONS = [
   { id: 'mock-1', question: 'Mock question one?', answers: ['1A', '1B', '1C', '1D'], correct: 0 },

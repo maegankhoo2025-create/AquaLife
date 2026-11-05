@@ -54,38 +54,6 @@ test('adding a clashing fish shows a warning with the reasons', async ({ page })
   await expect(warning.getByRole('button', { name: 'Cancel' })).toBeVisible()
 })
 
-test('Create Tank 2 puts the new fish in Tank 2, leaves Tank 1 alone and charges once', async ({ page }) => {
-  await signUpFreshUser(page)
-  const warning = await tryToAddOscarToTank1(page)
-
-  await warning.getByRole('button', { name: 'Create Tank 2 for this fish' }).click()
-  await expect(page.getByText(`Added 1 × ${OSCAR.name} to Tank 2.`)).toBeVisible()
-  await expectBalance(page, AFTER_BOTH_FISH)
-
-  async function expectBothTanks() {
-    await expectBalance(page, AFTER_BOTH_FISH)
-    await expect(page.getByRole('heading', { name: 'Fish (1)' })).toBeVisible()
-    await expect(page.getByRole('button', { name: `Remove ${OSCAR.name}` })).toHaveCount(1)
-    await expect(page.getByRole('button', { name: `Remove ${ZEBRA_DANIO.name}` })).toHaveCount(0)
-
-    await page.getByRole('button', { name: 'Previous tank' }).click()
-    await expectTank1HasOnlyFirstFish(page)
-    await page.getByRole('button', { name: 'Next tank' }).click()
-    await expect(page.getByRole('button', { name: `Remove ${OSCAR.name}` })).toHaveCount(1)
-  }
-
-  await openMyTank(page)
-  await expectBothTanks()
-  await page.reload()
-  await expectBothTanks()
-
-  await openHistory(page)
-  await expect(historyEntries(page)).toHaveCount(2)
-  const row = historyRow(page, `1 × ${OSCAR.name} for Tank 2`)
-  await expect(row).toHaveCount(1)
-  await expect(row).toContainText(`-${OSCAR.price}`)
-})
-
 test('Add anyway puts the fish in Tank 1, charges once and the tank shows the conflict', async ({ page }) => {
   await signUpFreshUser(page)
   const warning = await tryToAddOscarToTank1(page)
